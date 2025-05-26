@@ -1,0 +1,159 @@
+/* frontend/src/styles/DifficultySelectionPage.css */
+.difficulty-selection-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    min-height: 100vh;
+    background-color: var(--background);
+    box-sizing: border-box;
+}
+
+.difficulty-selection-container h1 {
+    font-family: var(--font-family-title);
+    color: var(--primary-indigo); /* Using Indigo from our palette */
+    margin-bottom: 2rem;
+    font-size: 2.5rem; /* Responsive size */
+}
+
+.difficulty-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Increased min-width for better readability */
+    gap: 25px; /* Slightly increased gap */
+    width: 100%;
+    max-width: 960px; /* Max width for the grid */
+    margin-bottom: 2.5rem; /* Increased margin */
+}
+
+.difficulty-button {
+    font-family: var(--font-family-body);
+    font-weight: 500; /* Medium weight for better readability */
+    font-size: 1.3rem; /* Slightly larger font */
+    padding: 25px; /* Increased padding */
+    min-height: 100px; /* Increased min-height */
+    border-width: 2px; /* Initial border width */
+    border-style: solid;
+    border-radius: 12px; /* Slightly more rounded */
+    cursor: pointer;
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out, background-color 0.2s ease-out;
+    background-color: var(--surface);
+    color: var(--text-primary);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08); /* Softer shadow */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    line-height: 1.4; /* Improved line spacing */
+}
+
+.difficulty-button:hover, .difficulty-button:focus {
+    transform: translateY(-4px) scale(1.02); /* Subtle lift and scale */
+    box-shadow: 0 7px 20px rgba(0,0,0,0.12); /* Enhanced shadow on hover */
+    outline: none; /* Remove default focus outline, rely on border/shadow */
+}
+
+/* Rainbow theme for buttons - using a simpler approach for now, can be expanded */
+/* These are example light colors, they should be defined in :root in index.css if used extensively */
+:root {
+    --primary-red-light: #FFE0E0;
+    --primary-orange-light: #FFF0D9;
+    --primary-yellow-light: #FFF9C4; /* Lighter yellow */
+    --primary-green-light: #D9F7BE;
+    --primary-blue-light: #D1E9FF;
+    --primary-indigo-light: #E0E7FF;
+    --primary-violet-light: #EDE9FE;
+}
+
+.difficulty-button:nth-child(7n+1) { background-color: var(--primary-red-light); color: var(--primary-red); border-color: var(--primary-red); }
+.difficulty-button:nth-child(7n+1):hover { background-color: var(--primary-red); color: white; }
+
+.difficulty-button:nth-child(7n+2) { background-color: var(--primary-orange-light); color: var(--primary-orange); border-color: var(--primary-orange); }
+.difficulty-button:nth-child(7n+2):hover { background-color: var(--primary-orange); color: white; }
+
+.difficulty-button:nth-child(7n+3) { background-color: var(--primary-yellow-light); color: var(--primary-yellow); border-color: var(--primary-yellow); }
+.difficulty-button:nth-child(7n+3):hover { background-color: var(--primary-yellow); color: var(--text-primary); } /* Yellow might need dark text */
+
+.difficulty-button:nth-child(7n+4) { background-color: var(--primary-green-light); color: var(--primary-green); border-color: var(--primary-green); }
+.difficulty-button:nth-child(7n+4):hover { background-color: var(--primary-green); color: white; }
+
+.difficulty-button:nth-child(7n+5) { background-color: var(--primary-blue-light); color: var(--primary-blue); border-color: var(--primary-blue); }
+.difficulty-button:nth-child(7n+5):hover { background-color: var(--primary-blue); color: white; }
+
+.difficulty-button:nth-child(7n+6) { background-color: var(--primary-indigo-light); color: var(--primary-indigo); border-color: var(--primary-indigo); }
+.difficulty-button:nth-child(7n+6):hover { background-color: var(--primary-indigo); color: white; }
+
+.difficulty-button:nth-child(7n+7) { background-color: var(--primary-violet-light); color: var(--primary-violet); border-color: var(--primary-violet); }
+.difficulty-button:nth-child(7n+7):hover { background-color: var(--primary-violet); color: white; }
+
+
+.loading-message, .error-message {
+    font-size: 1.3rem; /* Larger text */
+    padding: 25px;
+    color: var(--text-secondary);
+    font-family: var(--font-family-body);
+}
+.error-message { 
+    color: var(--error-color); 
+    background-color: #FFEBEE; /* Light red background for error */
+    border: 1px solid var(--error-color);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.back-button {
+  font-family: var(--font-family-button);
+  font-size: 1.1rem; /* Slightly larger */
+  padding: 12px 24px; /* More padding */
+  margin-top: 1.5rem; 
+  background-color: var(--text-secondary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.back-button:hover {
+  background-color: var(--text-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .difficulty-selection-container h1 {
+        font-size: 2rem;
+    }
+    .difficulty-grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); /* Adjust for smaller screens */
+        gap: 15px;
+    }
+    .difficulty-button {
+        font-size: 1.1rem;
+        padding: 18px;
+        min-height: 90px;
+    }
+}
+
+@media (max-width: 480px) {
+    .difficulty-selection-container h1 {
+        font-size: 1.8rem;
+    }
+    .difficulty-grid {
+        grid-template-columns: 1fr; /* Single column on very small screens */
+        gap: 10px;
+    }
+    .difficulty-button {
+        font-size: 1rem;
+        padding: 15px;
+        min-height: 80px;
+    }
+    .back-button {
+        font-size: 1rem;
+        padding: 10px 20px;
+    }
+}
