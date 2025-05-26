@@ -1,0 +1,177 @@
+/* frontend/src/styles/NumericKeypad.css */
+.numeric-keypad {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    background-color: var(--surface); /* Or a slightly different shade like var(--background-alt) if defined */
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    max-width: 320px; /* Max width of the keypad */
+    margin: 1rem auto; /* Center keypad */
+}
+
+.keypad-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px; /* Increased gap for better touch targets */
+    width: 100%;
+}
+
+.keypad-button {
+    font-family: var(--font-family-button);
+    font-size: 1.8rem; /* Larger font size */
+    font-weight: 500;
+    padding: 18px; /* Increased padding */
+    min-height: 70px; /* Ensure good height */
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: #ffffff; /* White buttons */
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.keypad-button:hover:not(:disabled) {
+    background-color: #f0f0f0; /* Light grey hover */
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.keypad-button:active:not(:disabled) {
+    transform: translateY(0px);
+    background-color: #e0e0e0; /* Darker grey active */
+}
+
+.digit-button {
+    /* Standard digit button styling */
+}
+
+.action-button {
+    font-size: 1.2rem; /* Slightly smaller font for action text or same if preferred */
+}
+
+.clear-button {
+    background-color: var(--primary-orange-light);
+    color: var(--primary-orange);
+    border-color: var(--primary-orange);
+}
+.clear-button:hover:not(:disabled) {
+    background-color: var(--primary-orange);
+    color: white;
+}
+
+.confirm-button {
+    background-color: var(--primary-green-light);
+    color: var(--primary-green);
+    border-color: var(--primary-green);
+    grid-column: span 2; /* Make confirm button wider */
+}
+.confirm-button:hover:not(:disabled) {
+    background-color: var(--primary-green);
+    color: white;
+}
+
+.keypad-disabled .keypad-button {
+    background-color: #f0f0f0; /* Lighter background when disabled */
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.keypad-disabled .keypad-button:hover:not(:disabled) {
+    background-color: #f0f0f0; /* Maintain disabled style on hover */
+    transform: none;
+    box-shadow: none;
+}
+
+/* To make the 0 button appear in the center of the last row */
+.keypad-grid button:nth-child(10) { /* This is the '0' button if digits are 1-9 then 0 */
+    grid-column: 2 / 3; /* Place '0' in the middle of the last row */
+}
+.keypad-grid button:nth-child(11) { /* This is the 'Clear' button */
+    grid-column: 1 / 2; /* Place 'Clear' on the left */
+}
+.keypad-grid button:nth-child(12) { /* This is the 'Confirm' button */
+    grid-column: 3 / 4; /* Place 'Confirm' on the right, spanning 1 column now */
+}
+
+/* If 'Confirm' is to span 2 columns and '0' and 'Clear' are on one row:
+   - The grid needs to accommodate this. The previous span 2 for confirm assumed it was the only one wide.
+   - A common layout is 789, 456, 123, Clear 0 Confirm.
+   - Let's adjust for a 3-column grid where 0 is on the last row, and Clear/Confirm share a row or are distinct.
+   - The current setup: 1-9 are buttons 1-9. Button 10 is '0'. Button 11 is 'Clear'. Button 12 is 'Confirm'.
+*/
+
+/* Adjusting for a typical keypad layout:
+   7 8 9
+   4 5 6
+   1 2 3
+   Clear 0 Confirm (Clear and Confirm might be wider or 0 could be wider)
+*/
+/* Let's re-evaluate the grid structure for typical layout: */
+/*
+  Digits 1-9 (9 buttons)
+  Then 'Clear', '0', 'Confirm' (3 buttons)
+  Total 12 buttons.
+  A 3x4 grid.
+*/
+/*
+  No, the current code maps digits 1-9, then 0 (10th button), then Clear (11th), then Confirm (12th).
+  The previous CSS for placing 0, Clear, Confirm was:
+  .keypad-grid button:nth-child(10) { grid-column: 2 / 3; } // 0 in middle
+  .keypad-grid button:nth-child(11) { grid-column: 1 / 2; } // Clear on left
+  .keypad-grid button:nth-child(12) { grid-column: 3 / 4; } // Confirm on right
+  This layout is fine for Clear, 0, Confirm on the last row.
+  The `grid-column: span 2` for confirm-button should be removed if we use this specific placement.
+*/
+.confirm-button {
+    /* grid-column: span 2; */ /* Remove this if using explicit placement below */
+}
+
+/* Explicit placement for the last row if needed for clarity */
+.keypad-grid button.digit-button:last-of-type { /* This is the '0' button */
+   /* grid-column: 2 / 3; */ /* This was an example, if '0' is the last digit-button, it's fine by default */
+}
+/* The current HTML structure has '0' as the last digit in the map, then Clear, then Confirm.
+   So, button 10 is '0'.
+   button 11 is 'Clear'.
+   button 12 is 'Confirm'.
+*/
+.keypad-grid > .digit-button:nth-child(10) { /* '0' button */
+    grid-column: 2 / 3; /* Center the '0' button on the last row of digits if desired */
+}
+.keypad-grid > .clear-button {
+    grid-column: 1 / 2; /* Place 'Clear' button to the left of '0' */
+}
+.keypad-grid > .confirm-button {
+    grid-column: 3 / 4; /* Place 'Confirm' button to the right of '0' */
+}
+
+/* Ensure the grid has enough rows if we force column positions for last items.
+   The grid is `grid-template-columns: repeat(3, 1fr);`
+   Digits 1-9 take 3 rows.
+   The 10th digit (0), Clear, and Confirm will naturally form the 4th row.
+   The above explicit settings for 0, Clear, Confirm on columns 1,2,3 of that 4th row is fine.
+*/
+
+@media (max-width: 480px) {
+    .numeric-keypad {
+        padding: 5px;
+        max-width: 100%; /* Full width on small screens */
+    }
+    .keypad-grid {
+        gap: 5px;
+    }
+    .keypad-button {
+        font-size: 1.5rem;
+        padding: 15px;
+        min-height: 60px;
+    }
+    .action-button {
+        font-size: 1rem;
+    }
+}

@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.env
+*.venv
+venv/
+env/
+ENV/
+
+# Node.js
+node_modules/
+dist/
+build/
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.idea/
+.vscode/
+
+# IDE / OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+ntuser.ini
+$RECYCLE.BIN/
+
+# Vite
+.vite/
+dist/
+coverage/
+*.pem
+
+# MyPy
+.mypy_cache/

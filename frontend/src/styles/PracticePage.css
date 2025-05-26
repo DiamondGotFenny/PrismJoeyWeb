@@ -1,0 +1,353 @@
+/* frontend/src/styles/PracticePage.css */
+.practice-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between; /* Push footer down */
+    min-height: 100vh;
+    padding: 20px;
+    background-color: var(--background);
+    box-sizing: border-box;
+    font-family: var(--font-family-body);
+}
+
+.practice-header {
+    width: 100%;
+    max-width: 800px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding: 10px 15px;
+    background-color: var(--surface);
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.progress-info, .score-info {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+.difficulty-name-display {
+    color: var(--primary-blue); /* Or another distinct color */
+    font-weight: bold;
+}
+.score-info {
+    color: var(--primary-green);
+    font-size: 1.2rem;
+}
+
+.question-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    width: 100%;
+    max-width: 600px; /* Max width for question display */
+}
+
+.question-display {
+    font-family: var(--font-family-title); /* Use title font for questions */
+    font-size: 4rem; /* Large font for question */
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap; /* Allow wrapping on small screens */
+    padding: 20px;
+    background-color: var(--surface);
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    min-height: 100px; /* Ensure it has some height */
+    animation-duration: 0.5s; /* For question transition */
+    animation-timing-function: ease-in-out; /* For question transition */
+}
+
+.question-display.question-enter-active {
+    animation-name: fadeInQuestion;
+}
+
+@keyframes fadeInQuestion {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+
+.operand, .operator, .equals-sign, .answer-placeholder {
+    margin: 0 0.5rem; /* Spacing around elements */
+}
+
+.operator { color: var(--primary-red); }
+.equals-sign { color: var(--primary-blue); }
+.answer-placeholder { color: var(--text-secondary); }
+
+
+.user-answer-display {
+    font-family: var(--font-family-title);
+    font-size: 3rem;
+    color: var(--primary-indigo);
+    min-height: 60px; /* Placeholder height */
+    margin-bottom: 1rem; /* Space before feedback */
+    padding: 10px 20px;
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    text-align: center;
+    width: 100%;
+    max-width: 200px; /* Limit width of answer display */
+    box-sizing: border-box;
+}
+
+.keypad-container {
+    width: 100%;
+    max-width: 350px; /* Max width for the keypad area */
+    margin-bottom: 1.5rem; /* Space before footer controls */
+}
+
+.practice-controls {
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    justify-content: space-around; /* Space out buttons */
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color); /* Separator for footer */
+}
+
+.control-button {
+    font-family: var(--font-family-button);
+    font-size: 1.1rem;
+    padding: 12px 25px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    min-width: 120px; /* Minimum width for control buttons */
+    text-align: center;
+}
+
+.control-button:disabled {
+    background-color: #ccc;
+    color: #888;
+    cursor: not-allowed;
+}
+
+.next-question-button {
+    background-color: var(--primary-blue);
+    color: white;
+}
+.next-question-button:hover:not(:disabled) {
+    background-color: var(--primary-indigo); /* Darker shade on hover */
+    transform: translateY(-1px);
+}
+
+.exit-button {
+    background-color: var(--primary-orange);
+    color: white;
+}
+.exit-button:hover:not(:disabled) {
+    background-color: var(--primary-red); /* More prominent warning on hover */
+    transform: translateY(-1px);
+}
+
+/* Loading and Error states for the page */
+.loading-message, .error-message { /* This style is for general loading/error, not summary card specific */
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+    padding: 20px;
+    text-align: center;
+    margin-top: 2rem;
+}
+.error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+.error-message {
+    color: var(--error-color);
+    background-color: var(--primary-red-light);
+    border: 1px solid var(--error-color);
+    border-radius: 8px;
+}
+
+/* Summary screen (when isSessionOver is true) - New Styles */
+.practice-summary-overlay {
+    position: fixed; /* Or absolute if container is relative */
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.3); /* Semi-transparent overlay */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000; /* Ensure it's on top */
+    padding: 20px; /* Padding for smaller screens */
+}
+
+.practice-summary-card {
+    background-color: var(--surface);
+    padding: 30px 40px;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    text-align: center;
+    width: 100%;
+    max-width: 550px; /* Max width of the card */
+    animation: fadeInSummaryCard 0.4s ease-out;
+}
+
+@keyframes fadeInSummaryCard {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.practice-summary-card h2 {
+    font-family: var(--font-family-title);
+    color: var(--primary-blue); /* Or a celebratory color like var(--primary-green) */
+    font-size: 2.6rem;
+    margin-bottom: 1.5rem;
+}
+
+.summary-difficulty {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+.summary-difficulty span {
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.summary-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Responsive grid */
+    gap: 1rem;
+    margin-bottom: 2rem;
+    text-align: left; /* Align text to left within grid cells */
+}
+
+.summary-stats-grid p {
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    margin: 0.3rem 0;
+    padding: 8px;
+    background-color: var(--background); /* Light background for each stat item */
+    border-radius: 6px;
+}
+.summary-stats-grid p span {
+    font-weight: bold;
+    color: var(--primary-indigo); /* Distinct color for stat values */
+    float: right; /* Align value to the right */
+}
+
+.encouraging-message {
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: var(--primary-green); /* Or dynamically set color based on message type */
+    margin-bottom: 2.5rem;
+    padding: 10px;
+    background-color: var(--primary-green-light);
+    border-radius: 8px;
+}
+
+.summary-actions {
+    display: flex;
+    flex-direction: column; /* Stack buttons on smaller screens */
+    gap: 1rem;
+    align-items: center;
+}
+
+.summary-actions .control-button { /* General styling for summary buttons */
+    min-width: 220px;
+    padding: 12px 20px;
+    font-size: 1.1rem;
+}
+
+/* Specific colors for summary buttons for better distinction */
+.summary-button-again {
+    background-color: var(--primary-green);
+    color: white;
+}
+.summary-button-again:hover:not(:disabled) { background-color: #388E3C; } /* Darker green */
+
+.summary-button-select {
+    background-color: var(--primary-blue);
+    color: white;
+}
+.summary-button-select:hover:not(:disabled) { background-color: #303F9F; } /* Darker blue */
+
+.summary-button-home {
+    background-color: var(--text-secondary);
+    color: white;
+}
+.summary-button-home:hover:not(:disabled) { background-color: var(--text-primary); }
+
+
+/* Responsive adjustments for summary */
+@media (min-width: 500px) { /* On slightly wider screens, allow horizontal button layout */
+    .summary-actions {
+        flex-direction: row;
+        justify-content: space-around;
+    }
+    .summary-actions .control-button {
+        min-width: 150px; /* Adjust width for side-by-side */
+    }
+}
+
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .practice-header {
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .question-display {
+        font-size: 3rem;
+    }
+    .user-answer-display {
+        font-size: 2.5rem;
+    }
+    .keypad-container {
+        max-width: 320px;
+    }
+}
+
+@media (max-width: 480px) {
+    .practice-container {
+        padding: 10px;
+    }
+    .practice-header {
+        padding: 8px;
+    }
+    .progress-info, .score-info {
+        font-size: 1rem;
+    }
+    .question-display {
+        font-size: 2.2rem; /* Further reduce for small screens */
+        padding: 15px;
+    }
+    .operand, .operator, .equals-sign, .answer-placeholder {
+        margin: 0 0.2rem;
+    }
+    .user-answer-display {
+        font-size: 2rem;
+        max-width: 150px;
+    }
+    .keypad-container {
+        max-width: 100%; /* Allow keypad to take full width if needed */
+    }
+    .control-button {
+        font-size: 1rem;
+        padding: 10px 18px;
+    }
+    /* .summary-container h1 { font-size: 2.2rem; } */ /* Old summary styles */
+    /* .summary-container p { font-size: 1.2rem; } */
+    .practice-summary-card h2 { font-size: 2rem; }
+    .summary-stats-grid p { font-size: 1rem; }
+    .summary-stats-grid p span { float: none; display: block; margin-top: 4px;} /* Stack value below label on small screens */
+    .encouraging-message { font-size: 1.1rem; }
+    .summary-actions .control-button { min-width: 100%; } /* Full width buttons on small screens */
+}
