@@ -6,6 +6,8 @@ from app.models.practice import PracticeSession, Question
 from app.models.difficulty import DifficultyLevel
 from app.api.endpoints.difficulty import difficulty_levels_objects # To get difficulty details
 import random
+from typing import Optional
+from pydantic import BaseModel
 
 router = APIRouter()
 
