@@ -170,9 +170,18 @@ const PracticePage: React.FC = () => {
       setError(null);
     } catch (err) {
       console.error('Error fetching next question:', err);
-      // If error is because session is over (e.g., backend says no more questions)
+      // If error is because session is over (e.g., backend says no more questions)      // Define a type guard for the error response
+      const isAxiosError = (
+        error: unknown
+      ): error is { response?: { data?: { detail?: string } } } => {
+        return (
+          typeof error === 'object' && error !== null && 'response' in error
+        );
+      };
+
       if (
-        (err as any)?.response?.data?.detail?.includes(
+        isAxiosError(err) &&
+        err.response?.data?.detail?.includes(
           'All planned questions have been answered'
         )
       ) {
@@ -273,7 +282,7 @@ const PracticePage: React.FC = () => {
     const accuracy =
       totalQs > 0
         ? ((sessionDataForSummary.score / totalQs) * 100).toFixed(0)
-        : 0;
+        : '0';
     let durationStr = 'N/A';
 
     if (sessionDataForSummary.start_time && sessionDataForSummary.end_time) {
