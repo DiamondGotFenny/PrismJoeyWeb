@@ -222,6 +222,8 @@ const PracticePage: React.FC = () => {
     setCurrentAnswer('');
     setIsAnswerSubmitted(false); // Re-enable keypad
     setActiveColumnarInput(null); // Reset active input for new question
+    setColumnarOperandDigits(null); // Reset columnar operand state
+    setColumnarResultDigits(null); // Reset columnar result state
 
     try {
       const nextQ = await getNextQuestion(sessionId);
@@ -317,7 +319,8 @@ const PracticePage: React.FC = () => {
     } else {
       navigate('/difficulty-selection'); // Fallback if difficulty ID is lost
     }
-    setColumnarResultDigits(null); // Reset columnar state
+    setColumnarOperandDigits(null); // Reset columnar operand state
+    setColumnarResultDigits(null); // Reset columnar result state
   };
 
   if (isSessionOver) {
@@ -479,42 +482,64 @@ const PracticePage: React.FC = () => {
   };
 
   const handleColumnarKeypadDigit = (digit: string) => {
-    if (!activeColumnarInput || !currentQuestion) return;
+    if (!activeColumnarInput || !currentQuestion) {
+      return;
+    }
 
     const { type, digitIndex, rowIndex } = activeColumnarInput;
 
-    if (type === 'operand' && rowIndex !== undefined && columnarOperandDigits) {
-      const newOperandDigits = [...columnarOperandDigits];
+    if (type === 'operand' && rowIndex !== undefined) {
+      // Get current operand digits from the question or initialize
+      const currentOperands =
+        columnarOperandDigits ||
+        currentQuestion.columnar_operands?.map((row) => [...row]) ||
+        [];
+
+      const newOperandDigits = [...currentOperands];
       newOperandDigits[rowIndex][digitIndex] = parseInt(digit, 10);
+
+      // Get current result digits
+      const currentResults = columnarResultDigits || [
+        ...(currentQuestion.columnar_result_placeholders || []),
+      ];
 
       // Update the answer string for validation
       const operandStrings = newOperandDigits.map((row) =>
         row.map((d) => (d !== null ? d.toString() : '')).join('')
       );
-      const resultString =
-        columnarResultDigits
-          ?.map((d) => (d !== null ? d.toString() : ''))
-          .join('') || '';
+      const resultString = currentResults
+        .map((d) => (d !== null ? d.toString() : ''))
+        .join('');
       const combinedAnswer = `${operandStrings.join('|')}=${resultString}`;
 
       // Call the answer change handler to update the component
       handleColumnarAnswerChange(
         combinedAnswer,
         newOperandDigits,
-        columnarResultDigits || []
+        currentResults
       );
 
-      // Move to next input
-      moveToNextColumnarInput();
-    } else if (type === 'result' && columnarResultDigits) {
-      const newResultDigits = [...columnarResultDigits];
+      // Move to next input (commented out to prevent confusing focus jumps)
+      // moveToNextColumnarInput();
+    } else if (type === 'result') {
+      // Get current result digits from the question or initialize
+      const currentResults = columnarResultDigits || [
+        ...(currentQuestion.columnar_result_placeholders || []),
+      ];
+
+      const newResultDigits = [...currentResults];
       newResultDigits[digitIndex] = parseInt(digit, 10);
 
+      // Get current operand digits
+      const currentOperands =
+        columnarOperandDigits ||
+        currentQuestion.columnar_operands?.map((row) => [...row]) ||
+        [];
+
       // Update the answer string for validation
-      const operandStrings =
-        columnarOperandDigits?.map((row) =>
-          row.map((d) => (d !== null ? d.toString() : '')).join('')
-        ) || [];
+      const operandStrings = currentOperands.map((row) =>
+        row.map((d) => (d !== null ? d.toString() : '')).join('')
+      );
       const resultString = newResultDigits
         .map((d) => (d !== null ? d.toString() : ''))
         .join('');
@@ -523,12 +548,12 @@ const PracticePage: React.FC = () => {
       // Call the answer change handler to update the component
       handleColumnarAnswerChange(
         combinedAnswer,
-        columnarOperandDigits || [],
+        currentOperands,
         newResultDigits
       );
 
-      // Move to next input
-      moveToNextColumnarInput();
+      // Move to next input (commented out to prevent confusing focus jumps)
+      // moveToNextColumnarInput();
     }
   };
 
@@ -537,35 +562,55 @@ const PracticePage: React.FC = () => {
 
     const { type, digitIndex, rowIndex } = activeColumnarInput;
 
-    if (type === 'operand' && rowIndex !== undefined && columnarOperandDigits) {
-      const newOperandDigits = [...columnarOperandDigits];
+    if (type === 'operand' && rowIndex !== undefined) {
+      // Get current operand digits from the question or initialize
+      const currentOperands =
+        columnarOperandDigits ||
+        currentQuestion.columnar_operands?.map((row) => [...row]) ||
+        [];
+
+      const newOperandDigits = [...currentOperands];
       newOperandDigits[rowIndex][digitIndex] = null;
+
+      // Get current result digits
+      const currentResults = columnarResultDigits || [
+        ...(currentQuestion.columnar_result_placeholders || []),
+      ];
 
       // Update the answer string for validation
       const operandStrings = newOperandDigits.map((row) =>
         row.map((d) => (d !== null ? d.toString() : '')).join('')
       );
-      const resultString =
-        columnarResultDigits
-          ?.map((d) => (d !== null ? d.toString() : ''))
-          .join('') || '';
+      const resultString = currentResults
+        .map((d) => (d !== null ? d.toString() : ''))
+        .join('');
       const combinedAnswer = `${operandStrings.join('|')}=${resultString}`;
 
       // Call the answer change handler to update the component
       handleColumnarAnswerChange(
         combinedAnswer,
         newOperandDigits,
-        columnarResultDigits || []
+        currentResults
       );
-    } else if (type === 'result' && columnarResultDigits) {
-      const newResultDigits = [...columnarResultDigits];
+    } else if (type === 'result') {
+      // Get current result digits from the question or initialize
+      const currentResults = columnarResultDigits || [
+        ...(currentQuestion.columnar_result_placeholders || []),
+      ];
+
+      const newResultDigits = [...currentResults];
       newResultDigits[digitIndex] = null;
 
+      // Get current operand digits
+      const currentOperands =
+        columnarOperandDigits ||
+        currentQuestion.columnar_operands?.map((row) => [...row]) ||
+        [];
+
       // Update the answer string for validation
-      const operandStrings =
-        columnarOperandDigits?.map((row) =>
-          row.map((d) => (d !== null ? d.toString() : '')).join('')
-        ) || [];
+      const operandStrings = currentOperands.map((row) =>
+        row.map((d) => (d !== null ? d.toString() : '')).join('')
+      );
       const resultString = newResultDigits
         .map((d) => (d !== null ? d.toString() : ''))
         .join('');
@@ -574,62 +619,9 @@ const PracticePage: React.FC = () => {
       // Call the answer change handler to update the component
       handleColumnarAnswerChange(
         combinedAnswer,
-        columnarOperandDigits || [],
+        currentOperands,
         newResultDigits
       );
-    }
-  };
-
-  const moveToNextColumnarInput = () => {
-    if (!activeColumnarInput || !currentQuestion) return;
-
-    const { type, digitIndex, rowIndex } = activeColumnarInput;
-
-    // Find next available input
-    if (type === 'operand' && rowIndex !== undefined && columnarOperandDigits) {
-      // Try next digit in same row
-      for (
-        let i = digitIndex + 1;
-        i < columnarOperandDigits[rowIndex].length;
-        i++
-      ) {
-        if (currentQuestion.columnar_operands?.[rowIndex][i] === null) {
-          setActiveColumnarInput({ type: 'operand', rowIndex, digitIndex: i });
-          return;
-        }
-      }
-
-      // Try next row
-      for (let row = rowIndex + 1; row < columnarOperandDigits.length; row++) {
-        for (let i = 0; i < columnarOperandDigits[row].length; i++) {
-          if (currentQuestion.columnar_operands?.[row][i] === null) {
-            setActiveColumnarInput({
-              type: 'operand',
-              rowIndex: row,
-              digitIndex: i,
-            });
-            return;
-          }
-        }
-      }
-
-      // Try result
-      if (columnarResultDigits) {
-        for (let i = 0; i < columnarResultDigits.length; i++) {
-          if (currentQuestion.columnar_result_placeholders?.[i] === null) {
-            setActiveColumnarInput({ type: 'result', digitIndex: i });
-            return;
-          }
-        }
-      }
-    } else if (type === 'result' && columnarResultDigits) {
-      // Try next digit in result
-      for (let i = digitIndex + 1; i < columnarResultDigits.length; i++) {
-        if (currentQuestion.columnar_result_placeholders?.[i] === null) {
-          setActiveColumnarInput({ type: 'result', digitIndex: i });
-          return;
-        }
-      }
     }
   };
 
@@ -659,11 +651,57 @@ const PracticePage: React.FC = () => {
       return;
     }
 
-    // Convert the filled-in result digits to a number for validation
+    // For columnar questions, we need to validate both operands and result
+    // Check if the user filled in the operand blanks correctly
+    let isOperandsCorrect = true;
+    if (currentQuestion.columnar_operands && columnarOperandDigits) {
+      for (
+        let rowIndex = 0;
+        rowIndex < currentQuestion.columnar_operands.length;
+        rowIndex++
+      ) {
+        for (
+          let digitIndex = 0;
+          digitIndex < currentQuestion.columnar_operands[rowIndex].length;
+          digitIndex++
+        ) {
+          // If this position was originally null (a blank), check if user filled it correctly
+          if (
+            currentQuestion.columnar_operands[rowIndex][digitIndex] === null
+          ) {
+            // Get the correct digit from the original operands
+            const correctOperands = currentQuestion.operands || [];
+            const maxDigits = Math.max(
+              ...currentQuestion.columnar_operands.map((row) => row.length)
+            );
+            const correctDigits = correctOperands[rowIndex]
+              .toString()
+              .padStart(maxDigits, '0')
+              .split('')
+              .map((d) => parseInt(d, 10));
+
+            if (
+              columnarOperandDigits[rowIndex][digitIndex] !==
+              correctDigits[digitIndex]
+            ) {
+              isOperandsCorrect = false;
+              break;
+            }
+          }
+        }
+        if (!isOperandsCorrect) break;
+      }
+    }
+
+    // Check if the result is correct
     const userResultNumber = parseInt(
       columnarResultDigits.map((d) => d?.toString()).join(''),
       10
     );
+    const isResultCorrect = userResultNumber === currentQuestion.correct_answer;
+
+    // Overall correctness
+    const isCorrect = isOperandsCorrect && isResultCorrect;
 
     setIsLoading(true);
     setIsAnswerSubmitted(true);
@@ -674,18 +712,21 @@ const PracticePage: React.FC = () => {
         question_id: currentQuestion.id,
         user_answer: userResultNumber,
       };
+
+      // We still submit to backend, but we do our own validation for columnar questions
       const resultQuestion = await submitAnswer(payload);
 
+      // Override the backend's is_correct with our own validation for columnar questions
+      resultQuestion.is_correct = isCorrect;
+
       setFeedback({
-        isCorrect: resultQuestion.is_correct ?? false,
-        message: resultQuestion.is_correct ? '答对了！🎉' : '再想想哦 🤔',
-        correctAnswer: resultQuestion.is_correct
-          ? undefined
-          : resultQuestion.correct_answer,
+        isCorrect: isCorrect,
+        message: isCorrect ? '答对了！🎉' : '再想想哦 🤔',
+        correctAnswer: isCorrect ? undefined : currentQuestion.correct_answer,
         show: true,
       });
 
-      if (resultQuestion.is_correct) {
+      if (isCorrect) {
         setScore((prev) => prev + 1);
       }
       setCurrentQuestion(resultQuestion);
@@ -729,6 +770,8 @@ const PracticePage: React.FC = () => {
             showCorrectAnswer={isAnswerSubmitted}
             onInputFocus={handleColumnarInputFocus}
             activeInput={activeColumnarInput}
+            externalOperandDigits={columnarOperandDigits || undefined}
+            externalResultDigits={columnarResultDigits || undefined}
           />
         ) : (
           <div

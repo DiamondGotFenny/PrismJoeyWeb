@@ -20,6 +20,9 @@ interface ColumnarCalculationProps {
     rowIndex?: number;
     digitIndex: number;
   } | null;
+  // Allow parent to control the component's state
+  externalOperandDigits?: (number | null)[][];
+  externalResultDigits?: (number | null)[];
 }
 
 const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
@@ -28,6 +31,8 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
   showCorrectAnswer = false,
   onInputFocus,
   activeInput,
+  externalOperandDigits,
+  externalResultDigits,
 }) => {
   const {
     columnar_operands,
@@ -65,7 +70,8 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
         setOperandDigits(reconstructedOperands);
       } else {
         // Deep copy the operands to allow user input
-        setOperandDigits(columnar_operands.map((row) => [...row]));
+        const operandsWithBlanks = columnar_operands.map((row) => [...row]);
+        setOperandDigits(operandsWithBlanks);
       }
       // Initialize refs array for operands
       inputRefs.current = columnar_operands.map((row) => row.map(() => null));
@@ -100,6 +106,19 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
     question.operands,
     question.correct_answer,
   ]);
+
+  // Update internal state when external state changes (from keypad)
+  useEffect(() => {
+    if (externalOperandDigits && !showCorrectAnswer) {
+      setOperandDigits(externalOperandDigits);
+    }
+  }, [externalOperandDigits, showCorrectAnswer]);
+
+  useEffect(() => {
+    if (externalResultDigits && !showCorrectAnswer) {
+      setResultDigits(externalResultDigits);
+    }
+  }, [externalResultDigits, showCorrectAnswer]);
 
   const handleOperandInputChange = (
     rowIndex: number,
