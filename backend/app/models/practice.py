@@ -12,6 +12,10 @@ class Question(BaseModel):
     question_string: str   # e.g., "10 + 5 - 3"
     correct_answer: int
     difficulty_level_id: int # Storing the ID of the difficulty level
+    question_type: str # e.g., "arithmetic" or "columnar"
+    columnar_operands: Optional[List[List[Optional[int]]]] = None
+    columnar_result_placeholders: Optional[List[Optional[int]]] = None
+    columnar_operation: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     user_answer: Optional[int] = None
     is_correct: Optional[bool] = None

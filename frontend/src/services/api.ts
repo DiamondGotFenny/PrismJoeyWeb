@@ -35,6 +35,10 @@ export interface Question {
   question_string: string;
   correct_answer: number;
   difficulty_level_id: number;
+  question_type: string;
+  columnar_operands?: (number | null)[][];
+  columnar_result_placeholders?: (number | null)[];
+  columnar_operation?: string;
   created_at: string; // ISO datetime string
   user_answer?: number;
   is_correct?: boolean;
