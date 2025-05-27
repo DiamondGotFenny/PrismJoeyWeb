@@ -30,9 +30,9 @@ export const getDifficultyLevels = async (): Promise<DifficultyLevel[]> => {
 export interface Question {
   id: string; // UUID
   session_id: string; // UUID
-  operand1: number;
-  operand2: number;
-  operation: string;
+  operands: number[];
+  operations: string[];
+  question_string: string;
   correct_answer: number;
   difficulty_level_id: number;
   created_at: string; // ISO datetime string
@@ -102,7 +102,7 @@ export const submitAnswer = async (
       payload
     );
     return response.data;
-  } catch (error) {
+  } catch (error)
     console.error('Error submitting answer:', error);
     throw error;
   }

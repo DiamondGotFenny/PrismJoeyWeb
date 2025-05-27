@@ -7,9 +7,9 @@ from app.models.difficulty import DifficultyLevel # Assuming this is where Diffi
 class Question(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     session_id: UUID
-    operand1: int
-    operand2: int
-    operation: str  # "+" or "-"
+    operands: List[int]
+    operations: List[str]  # e.g., ["+", "-"]
+    question_string: str   # e.g., "10 + 5 - 3"
     correct_answer: int
     difficulty_level_id: int # Storing the ID of the difficulty level
     created_at: datetime = Field(default_factory=datetime.utcnow)
