@@ -16,7 +16,7 @@ def _digits_to_number(digits: List[Optional[int]]) -> int:
     return int("".join(map(str, [d if d is not None else 0 for d in digits])))
 
 def generate_columnar_question(difficulty_level: DifficultyLevel, session_id: UUID) -> Question:
-    """Generates a columnar addition question."""
+    """Generates a columnar addition question with blanks in operands and/or result."""
     # For now, only addition
     operation = "+"
     
@@ -34,47 +34,42 @@ def generate_columnar_question(difficulty_level: DifficultyLevel, session_id: UU
     # Convert numbers to digit lists (operands)
     op1_digits = _number_to_digits(num1, overall_max_digits)
     op2_digits = _number_to_digits(num2, overall_max_digits)
+    result_digits = _number_to_digits(correct_answer, overall_max_digits)
     
-    columnar_operands = [op1_digits, op2_digits]
+    # Create copies for blanking
+    columnar_operands = [list(op1_digits), list(op2_digits)]
+    columnar_result_placeholders = list(result_digits)
 
-    # Convert correct answer to digit list (result placeholders)
-    correct_answer_digits = _number_to_digits(correct_answer, overall_max_digits)
+    # Strategy: Create 1-3 blanks across operands and result
+    # Ensure at least one significant digit remains visible in each row
+    total_positions = []
     
-    # Create placeholders, initially a copy of the correct answer
-    columnar_result_placeholders = list(correct_answer_digits)
+    # Add operand positions (row_index, digit_index)
+    for row_idx in range(len(columnar_operands)):
+        for digit_idx in range(len(columnar_operands[row_idx])):
+            # Skip leading zeros in operands as they're not meaningful blanks
+            if not (columnar_operands[row_idx][digit_idx] == 0 and digit_idx == 0 and overall_max_digits > 1):
+                total_positions.append(('operand', row_idx, digit_idx))
+    
+    # Add result positions
+    for digit_idx in range(len(columnar_result_placeholders)):
+        # Skip leading zeros in result as they're not meaningful blanks
+        if not (columnar_result_placeholders[digit_idx] == 0 and digit_idx == 0 and overall_max_digits > 1):
+            total_positions.append(('result', 0, digit_idx))
 
-    # Make one random digit in the result None (if result has more than 1 digit and not the leading one)
-    if len(columnar_result_placeholders) > 0:
-        # Ensure we don't make a leading digit None if it's the only digit or to avoid confusion
-        # For example, if answer is 7, placeholder is [7]. If answer is 12, placeholder is [1, None] or [None, 2]
-        # We will try to make a non-leading digit None if possible.
+    # Determine number of blanks (1-3, but ensure we don't blank everything)
+    max_blanks = min(3, len(total_positions) - 2)  # Leave at least 2 digits visible
+    num_blanks = random.randint(1, max(1, max_blanks))
+    
+    # Randomly select positions to blank
+    if total_positions:
+        blank_positions = random.sample(total_positions, min(num_blanks, len(total_positions)))
         
-        # Find indices that can be made None (not a leading zero if it's the only digit)
-        eligible_indices = [
-            i for i, digit in enumerate(columnar_result_placeholders)
-        ]
-        
-        if columnar_result_placeholders[0] == 0 and len(columnar_result_placeholders) > 1: # leading zero from padding
-            # if it's like [0, 1, 5] for 15, don't make the 0 None.
-            # if it's like [5] for 5, eligible_indices is [0]
-            # if it's like [1, 5] for 15, eligible_indices is [0,1]
-            # if it's like [0,0,5] for 5, eligible_indices is [0,1,2]
-            # We want to avoid making a significant leading digit None if possible.
-            # Let's try to make a non-leading digit None.
-            non_leading_eligible_indices = [i for i in eligible_indices if i > 0 and columnar_result_placeholders[i-1] != 0]
-            if not non_leading_eligible_indices and columnar_result_placeholders[0] == 0 and len(columnar_result_placeholders) > 1 : #e.g. [0,5]
-                 # if it is [0,5], make 5 None
-                 non_leading_eligible_indices = [i for i in eligible_indices if i > 0]
-
-
-            if non_leading_eligible_indices:
-                blank_index = random.choice(non_leading_eligible_indices)
-                columnar_result_placeholders[blank_index] = None
-            elif eligible_indices: # Only one digit or all leading are significant
-                blank_index = random.choice(eligible_indices)
-                # Avoid making the only digit of a single-digit number None if it's not 0
-                if not (len(columnar_result_placeholders) == 1 and columnar_result_placeholders[0] != 0) :
-                    columnar_result_placeholders[blank_index] = None
+        for pos_type, row_idx, digit_idx in blank_positions:
+            if pos_type == 'operand':
+                columnar_operands[row_idx][digit_idx] = None
+            elif pos_type == 'result':
+                columnar_result_placeholders[digit_idx] = None
 
     question_string = f"{num1} {operation} {num2}"
 

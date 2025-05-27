@@ -1,80 +1,98 @@
 .columnar-calculation-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-family: monospace; /* Ensures digits have similar width */
-    font-size: 1.5em; /* Larger font for readability */
-    margin: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: monospace; /* Ensures digits have similar width */
+  font-size: 1.5em; /* Larger font for readability */
+  margin: 20px;
 }
 
 .columnar-operands {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end; /* Align numbers to the right */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end; /* Align numbers to the right */
 }
 
 .columnar-operand-row {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    padding: 2px 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.columnar-operand-digit,
+.columnar-operand-input {
+  width: 20px; /* Fixed width for each digit cell */
+  height: 30px;
+  text-align: center;
+  padding: 0 2px;
+  box-sizing: border-box;
+  font-size: 1em; /* Match operand font size */
+  margin: 0 1px; /* Small gap between inputs/digits */
 }
 
 .columnar-operand-digit {
-    width: 20px; /* Fixed width for each digit cell */
-    text-align: center;
-    padding: 0 2px;
-    box-sizing: border-box;
+  border: none; /* No border for pre-filled digits */
+  background-color: transparent;
+  padding-top: 4px; /* Align text vertically with input */
+}
+
+.columnar-operand-input {
+  border: 1px solid #000; /* Make input fields clear */
+  padding: 0; /* Remove default padding for inputs */
 }
 
 .columnar-operation-symbol {
-    width: 20px; /* Width for the operator symbol */
-    text-align: right;
-    padding-right: 5px; /* Space between operator and number */
-    box-sizing: border-box;
+  width: 20px; /* Width for the operator symbol */
+  text-align: right;
+  padding-right: 5px; /* Space between operator and number */
+  box-sizing: border-box;
 }
 
 .columnar-line {
-    width: 100%; /* Make line span the width of the numbers */
-    border-bottom: 2px solid black;
-    margin-top: 5px;
-    margin-bottom: 5px;
+  width: 100%; /* Make line span the width of the numbers */
+  border-bottom: 2px solid black;
+  margin-top: 5px;
+  margin-bottom: 5px;
 }
 
 .columnar-result {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
 }
 
 .columnar-result-digit,
 .columnar-result-input {
-    width: 20px; /* Fixed width for each digit cell */
-    height: 30px;
-    text-align: center;
-    font-size: 1em; /* Match operand font size */
-    border: 1px solid #ccc;
-    margin: 0 1px; /* Small gap between inputs/digits */
-    box-sizing: border-box;
-    padding: 0; /* Remove default padding */
+  width: 20px; /* Fixed width for each digit cell */
+  height: 30px;
+  text-align: center;
+  font-size: 1em; /* Match operand font size */
+  border: 1px solid #ccc;
+  margin: 0 1px; /* Small gap between inputs/digits */
+  box-sizing: border-box;
+  padding: 0; /* Remove default padding */
 }
 
 .columnar-result-input {
-    border: 1px solid #000; /* Make input fields clear */
+  border: 1px solid #000; /* Make input fields clear */
 }
 
 .columnar-result-digit {
-    border: none; /* No border for pre-filled digits */
-    background-color: transparent;
-    padding-top: 4px; /* Align text vertically with input */
+  border: none; /* No border for pre-filled digits */
+  background-color: transparent;
+  padding-top: 4px; /* Align text vertically with input */
 }
 
 /* Adjust input to remove spinners for number type if used, though text is safer for single digit */
-input[type="text"].columnar-result-input {
-    -moz-appearance: textfield; /* Firefox */
+input[type='text'].columnar-result-input,
+input[type='text'].columnar-operand-input {
+  -moz-appearance: textfield; /* Firefox */
 }
-input[type="text"].columnar-result-input::-webkit-outer-spin-button,
-input[type="text"].columnar-result-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+input[type='text'].columnar-result-input::-webkit-outer-spin-button,
+input[type='text'].columnar-result-input::-webkit-inner-spin-button,
+input[type='text'].columnar-operand-input::-webkit-outer-spin-button,
+input[type='text'].columnar-operand-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }

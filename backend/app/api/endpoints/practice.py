@@ -246,7 +246,8 @@ def generate_question_for_session(session: PracticeSession) -> Question:
             operations=final_operations_symbols,
             question_string=question_str,
             correct_answer=final_answer,
-            difficulty_level_id=level.id
+            difficulty_level_id=level.id,
+            question_type="arithmetic"
         )
 
     # Fallback if all attempts fail (simplistic)
@@ -275,7 +276,8 @@ def generate_question_for_session(session: PracticeSession) -> Question:
         operations=fallback_operations,
         question_string=fallback_q_string, # Might not match fallback_answer if adjusted
         correct_answer=fallback_answer,
-        difficulty_level_id=level.id
+        difficulty_level_id=level.id,
+        question_type="arithmetic"
     )
 
 

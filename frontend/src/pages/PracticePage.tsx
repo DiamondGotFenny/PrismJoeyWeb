@@ -20,7 +20,12 @@ const PracticePage: React.FC = () => {
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [currentAnswer, setCurrentAnswer] = useState<string>('');
   // State for columnar answer parts
-  const [columnarResultDigits, setColumnarResultDigits] = useState<(number | null)[] | null>(null);
+  const [columnarResultDigits, setColumnarResultDigits] = useState<
+    (number | null)[] | null
+  >(null);
+  const [columnarOperandDigits, setColumnarOperandDigits] = useState<
+    (number | null)[][] | null
+  >(null);
   const [feedback, setFeedback] = useState<{
     isCorrect: boolean | null;
     message: string;
@@ -259,7 +264,7 @@ const PracticePage: React.FC = () => {
     } else {
       navigate('/difficulty-selection'); // Fallback if difficulty ID is lost
     }
-  setColumnarResultDigits(null); // Reset columnar state
+    setColumnarResultDigits(null); // Reset columnar state
   };
 
   if (isSessionOver) {
@@ -373,9 +378,88 @@ const PracticePage: React.FC = () => {
   if (!currentQuestion)
     return <div className="loading-message">题目加载中...</div>; // Should be brief
 
-  const handleColumnarAnswerChange = (answerString: string, resultDigits: (number | null)[]) => {
+  const handleColumnarAnswerChange = (
+    answerString: string,
+    operandsWithBlanks: (number | null)[][],
+    resultDigits: (number | null)[]
+  ) => {
     setCurrentAnswer(answerString);
+    setColumnarOperandDigits(operandsWithBlanks);
     setColumnarResultDigits(resultDigits);
+  };
+
+  const handleSubmitColumnarAnswer = async () => {
+    if (!sessionId || !currentQuestion || !columnarResultDigits) return;
+
+    // Check if user has filled all blanks (both operands and result)
+    const hasAllOperandBlanks =
+      columnarOperandDigits?.every((row) =>
+        row.every((digit) => digit !== null)
+      ) ?? true;
+
+    const hasAllResultBlanks = columnarResultDigits.every(
+      (digit) => digit !== null
+    );
+
+    if (!hasAllOperandBlanks || !hasAllResultBlanks) {
+      // User hasn't filled all blanks yet
+      setFeedback({
+        isCorrect: null,
+        message: '请填写所有空白处！',
+        show: true,
+      });
+      setTimeout(() => {
+        setFeedback((prev) => ({ ...prev, show: false }));
+      }, 2000);
+      return;
+    }
+
+    // Convert the filled-in result digits to a number for validation
+    const userResultNumber = parseInt(
+      columnarResultDigits.map((d) => d?.toString()).join(''),
+      10
+    );
+
+    setIsLoading(true);
+    setIsAnswerSubmitted(true);
+
+    try {
+      const payload: AnswerPayload = {
+        session_id: sessionId,
+        question_id: currentQuestion.id,
+        user_answer: userResultNumber,
+      };
+      const resultQuestion = await submitAnswer(payload);
+
+      setFeedback({
+        isCorrect: resultQuestion.is_correct ?? false,
+        message: resultQuestion.is_correct ? '答对了！🎉' : '再想想哦 🤔',
+        correctAnswer: resultQuestion.is_correct
+          ? undefined
+          : resultQuestion.correct_answer,
+        show: true,
+      });
+
+      if (resultQuestion.is_correct) {
+        setScore((prev) => prev + 1);
+      }
+      setCurrentQuestion(resultQuestion);
+      setIsLoading(false);
+
+      // Check if this was the last question
+      if (questionNumber >= totalQuestions) {
+        setIsSessionOver(true);
+        if (sessionId) {
+          const summaryData = await getPracticeSummary(sessionId);
+          setSessionDataForSummary(summaryData);
+        }
+      }
+    } catch (err) {
+      console.error('Error submitting columnar answer:', err);
+      setError('提交答案失败，请检查网络连接。');
+      setFeedback({ isCorrect: null, message: '提交失败!', show: true });
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -403,7 +487,9 @@ const PracticePage: React.FC = () => {
             className="question-display question-enter-active"
             key={questionAnimationKey}
           >
-            <span className="expression">{currentQuestion.question_string}</span>
+            <span className="expression">
+              {currentQuestion.question_string}
+            </span>
             <span className="equals-sign">=</span>
             <span className="answer-placeholder">?</span>
           </div>
@@ -412,7 +498,7 @@ const PracticePage: React.FC = () => {
         {currentQuestion.question_type !== 'columnar' && (
           <div className="user-answer-display">{currentAnswer || '_'}</div>
         )}
-        
+
         <FeedbackDisplay
           isCorrect={feedback.isCorrect}
           correctMessage={feedback.message}
@@ -430,6 +516,24 @@ const PracticePage: React.FC = () => {
             onConfirm={handleSubmitAnswer}
             disabled={isAnswerSubmitted || isLoading}
           />
+        </div>
+      )}
+
+      {currentQuestion.question_type === 'columnar' && !isAnswerSubmitted && (
+        <div className="columnar-submit-container">
+          <button
+            onClick={handleSubmitColumnarAnswer}
+            className="control-button submit-columnar-button button-interactive"
+            disabled={
+              isLoading ||
+              !columnarResultDigits?.every((digit) => digit !== null) ||
+              !columnarOperandDigits?.every((row) =>
+                row.every((digit) => digit !== null)
+              )
+            }
+          >
+            提交答案
+          </button>
         </div>
       )}
 
