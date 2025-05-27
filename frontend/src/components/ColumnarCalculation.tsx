@@ -10,12 +10,24 @@ interface ColumnarCalculationProps {
     resultDigits: (number | null)[]
   ) => void;
   showCorrectAnswer?: boolean;
+  onInputFocus?: (
+    type: 'operand' | 'result',
+    digitIndex: number,
+    rowIndex?: number
+  ) => void;
+  activeInput?: {
+    type: 'operand' | 'result';
+    rowIndex?: number;
+    digitIndex: number;
+  } | null;
 }
 
 const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
   question,
   onAnswerChange,
   showCorrectAnswer = false,
+  onInputFocus,
+  activeInput,
 }) => {
   const {
     columnar_operands,
@@ -292,7 +304,13 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
                   }}
                   type="text"
                   maxLength={1}
-                  className="columnar-operand-input"
+                  className={`columnar-operand-input ${
+                    activeInput?.type === 'operand' &&
+                    activeInput?.rowIndex === rowIndex &&
+                    activeInput?.digitIndex === digitIndex
+                      ? 'active'
+                      : ''
+                  }`}
                   value={
                     operandDigits[rowIndex][digitIndex] === null
                       ? ''
@@ -307,6 +325,9 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
                   }
                   onKeyDown={(e) =>
                     handleOperandKeyDown(e, rowIndex, digitIndex)
+                  }
+                  onFocus={() =>
+                    onInputFocus?.('operand', digitIndex, rowIndex)
                   }
                   pattern="\d*"
                   inputMode="numeric"
@@ -337,7 +358,12 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
               }}
               type="text" // Using text to allow single char and better control
               maxLength={1}
-              className="columnar-result-input"
+              className={`columnar-result-input ${
+                activeInput?.type === 'result' &&
+                activeInput?.digitIndex === index
+                  ? 'active'
+                  : ''
+              }`}
               value={
                 resultDigits[index] === null
                   ? ''
@@ -345,6 +371,7 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
               } // Controlled component
               onChange={(e) => handleResultInputChange(index, e.target.value)}
               onKeyDown={(e) => handleResultKeyDown(e, index)}
+              onFocus={() => onInputFocus?.('result', index)}
               pattern="\d*" // Hint for numeric input, though validation is in JS
               inputMode="numeric" // Show numeric keyboard on mobile
               disabled={showCorrectAnswer}

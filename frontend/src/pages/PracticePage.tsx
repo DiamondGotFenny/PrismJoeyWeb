@@ -26,6 +26,11 @@ const PracticePage: React.FC = () => {
   const [columnarOperandDigits, setColumnarOperandDigits] = useState<
     (number | null)[][] | null
   >(null);
+  const [activeColumnarInput, setActiveColumnarInput] = useState<{
+    type: 'operand' | 'result';
+    rowIndex?: number;
+    digitIndex: number;
+  } | null>(null);
   const [feedback, setFeedback] = useState<{
     isCorrect: boolean | null;
     message: string;
@@ -83,6 +88,53 @@ const PracticePage: React.FC = () => {
   useEffect(() => {
     handleStartSession();
   }, [handleStartSession]);
+
+  // Auto-focus first available input for columnar questions
+  useEffect(() => {
+    if (
+      currentQuestion?.question_type === 'columnar' &&
+      !activeColumnarInput &&
+      !isAnswerSubmitted
+    ) {
+      // Find first available operand input
+      if (currentQuestion.columnar_operands) {
+        for (
+          let rowIndex = 0;
+          rowIndex < currentQuestion.columnar_operands.length;
+          rowIndex++
+        ) {
+          for (
+            let digitIndex = 0;
+            digitIndex < currentQuestion.columnar_operands[rowIndex].length;
+            digitIndex++
+          ) {
+            if (
+              currentQuestion.columnar_operands[rowIndex][digitIndex] === null
+            ) {
+              setActiveColumnarInput({ type: 'operand', rowIndex, digitIndex });
+              return;
+            }
+          }
+        }
+      }
+
+      // If no operand inputs, try result inputs
+      if (currentQuestion.columnar_result_placeholders) {
+        for (
+          let digitIndex = 0;
+          digitIndex < currentQuestion.columnar_result_placeholders.length;
+          digitIndex++
+        ) {
+          if (
+            currentQuestion.columnar_result_placeholders[digitIndex] === null
+          ) {
+            setActiveColumnarInput({ type: 'result', digitIndex });
+            return;
+          }
+        }
+      }
+    }
+  }, [currentQuestion, activeColumnarInput, isAnswerSubmitted]);
 
   const handleKeypadDigit = (digit: string) => {
     if (currentAnswer.length < 5) {
@@ -169,6 +221,7 @@ const PracticePage: React.FC = () => {
     setIsLoading(true);
     setCurrentAnswer('');
     setIsAnswerSubmitted(false); // Re-enable keypad
+    setActiveColumnarInput(null); // Reset active input for new question
 
     try {
       const nextQ = await getNextQuestion(sessionId);
@@ -386,6 +439,198 @@ const PracticePage: React.FC = () => {
     setCurrentAnswer(answerString);
     setColumnarOperandDigits(operandsWithBlanks);
     setColumnarResultDigits(resultDigits);
+
+    // Auto-focus first available input if none is currently active
+    if (!activeColumnarInput && currentQuestion) {
+      // Find first available operand input
+      for (let rowIndex = 0; rowIndex < operandsWithBlanks.length; rowIndex++) {
+        for (
+          let digitIndex = 0;
+          digitIndex < operandsWithBlanks[rowIndex].length;
+          digitIndex++
+        ) {
+          if (
+            currentQuestion.columnar_operands?.[rowIndex][digitIndex] === null
+          ) {
+            setActiveColumnarInput({ type: 'operand', rowIndex, digitIndex });
+            return;
+          }
+        }
+      }
+
+      // If no operand inputs, try result inputs
+      for (let digitIndex = 0; digitIndex < resultDigits.length; digitIndex++) {
+        if (
+          currentQuestion.columnar_result_placeholders?.[digitIndex] === null
+        ) {
+          setActiveColumnarInput({ type: 'result', digitIndex });
+          return;
+        }
+      }
+    }
+  };
+
+  const handleColumnarInputFocus = (
+    type: 'operand' | 'result',
+    digitIndex: number,
+    rowIndex?: number
+  ) => {
+    setActiveColumnarInput({ type, digitIndex, rowIndex });
+  };
+
+  const handleColumnarKeypadDigit = (digit: string) => {
+    if (!activeColumnarInput || !currentQuestion) return;
+
+    const { type, digitIndex, rowIndex } = activeColumnarInput;
+
+    if (type === 'operand' && rowIndex !== undefined && columnarOperandDigits) {
+      const newOperandDigits = [...columnarOperandDigits];
+      newOperandDigits[rowIndex][digitIndex] = parseInt(digit, 10);
+
+      // Update the answer string for validation
+      const operandStrings = newOperandDigits.map((row) =>
+        row.map((d) => (d !== null ? d.toString() : '')).join('')
+      );
+      const resultString =
+        columnarResultDigits
+          ?.map((d) => (d !== null ? d.toString() : ''))
+          .join('') || '';
+      const combinedAnswer = `${operandStrings.join('|')}=${resultString}`;
+
+      // Call the answer change handler to update the component
+      handleColumnarAnswerChange(
+        combinedAnswer,
+        newOperandDigits,
+        columnarResultDigits || []
+      );
+
+      // Move to next input
+      moveToNextColumnarInput();
+    } else if (type === 'result' && columnarResultDigits) {
+      const newResultDigits = [...columnarResultDigits];
+      newResultDigits[digitIndex] = parseInt(digit, 10);
+
+      // Update the answer string for validation
+      const operandStrings =
+        columnarOperandDigits?.map((row) =>
+          row.map((d) => (d !== null ? d.toString() : '')).join('')
+        ) || [];
+      const resultString = newResultDigits
+        .map((d) => (d !== null ? d.toString() : ''))
+        .join('');
+      const combinedAnswer = `${operandStrings.join('|')}=${resultString}`;
+
+      // Call the answer change handler to update the component
+      handleColumnarAnswerChange(
+        combinedAnswer,
+        columnarOperandDigits || [],
+        newResultDigits
+      );
+
+      // Move to next input
+      moveToNextColumnarInput();
+    }
+  };
+
+  const handleColumnarKeypadClear = () => {
+    if (!activeColumnarInput) return;
+
+    const { type, digitIndex, rowIndex } = activeColumnarInput;
+
+    if (type === 'operand' && rowIndex !== undefined && columnarOperandDigits) {
+      const newOperandDigits = [...columnarOperandDigits];
+      newOperandDigits[rowIndex][digitIndex] = null;
+
+      // Update the answer string for validation
+      const operandStrings = newOperandDigits.map((row) =>
+        row.map((d) => (d !== null ? d.toString() : '')).join('')
+      );
+      const resultString =
+        columnarResultDigits
+          ?.map((d) => (d !== null ? d.toString() : ''))
+          .join('') || '';
+      const combinedAnswer = `${operandStrings.join('|')}=${resultString}`;
+
+      // Call the answer change handler to update the component
+      handleColumnarAnswerChange(
+        combinedAnswer,
+        newOperandDigits,
+        columnarResultDigits || []
+      );
+    } else if (type === 'result' && columnarResultDigits) {
+      const newResultDigits = [...columnarResultDigits];
+      newResultDigits[digitIndex] = null;
+
+      // Update the answer string for validation
+      const operandStrings =
+        columnarOperandDigits?.map((row) =>
+          row.map((d) => (d !== null ? d.toString() : '')).join('')
+        ) || [];
+      const resultString = newResultDigits
+        .map((d) => (d !== null ? d.toString() : ''))
+        .join('');
+      const combinedAnswer = `${operandStrings.join('|')}=${resultString}`;
+
+      // Call the answer change handler to update the component
+      handleColumnarAnswerChange(
+        combinedAnswer,
+        columnarOperandDigits || [],
+        newResultDigits
+      );
+    }
+  };
+
+  const moveToNextColumnarInput = () => {
+    if (!activeColumnarInput || !currentQuestion) return;
+
+    const { type, digitIndex, rowIndex } = activeColumnarInput;
+
+    // Find next available input
+    if (type === 'operand' && rowIndex !== undefined && columnarOperandDigits) {
+      // Try next digit in same row
+      for (
+        let i = digitIndex + 1;
+        i < columnarOperandDigits[rowIndex].length;
+        i++
+      ) {
+        if (currentQuestion.columnar_operands?.[rowIndex][i] === null) {
+          setActiveColumnarInput({ type: 'operand', rowIndex, digitIndex: i });
+          return;
+        }
+      }
+
+      // Try next row
+      for (let row = rowIndex + 1; row < columnarOperandDigits.length; row++) {
+        for (let i = 0; i < columnarOperandDigits[row].length; i++) {
+          if (currentQuestion.columnar_operands?.[row][i] === null) {
+            setActiveColumnarInput({
+              type: 'operand',
+              rowIndex: row,
+              digitIndex: i,
+            });
+            return;
+          }
+        }
+      }
+
+      // Try result
+      if (columnarResultDigits) {
+        for (let i = 0; i < columnarResultDigits.length; i++) {
+          if (currentQuestion.columnar_result_placeholders?.[i] === null) {
+            setActiveColumnarInput({ type: 'result', digitIndex: i });
+            return;
+          }
+        }
+      }
+    } else if (type === 'result' && columnarResultDigits) {
+      // Try next digit in result
+      for (let i = digitIndex + 1; i < columnarResultDigits.length; i++) {
+        if (currentQuestion.columnar_result_placeholders?.[i] === null) {
+          setActiveColumnarInput({ type: 'result', digitIndex: i });
+          return;
+        }
+      }
+    }
   };
 
   const handleSubmitColumnarAnswer = async () => {
@@ -482,6 +727,8 @@ const PracticePage: React.FC = () => {
             question={currentQuestion}
             onAnswerChange={handleColumnarAnswerChange}
             showCorrectAnswer={isAnswerSubmitted}
+            onInputFocus={handleColumnarInputFocus}
+            activeInput={activeColumnarInput}
           />
         ) : (
           <div
@@ -509,34 +756,26 @@ const PracticePage: React.FC = () => {
         />
       </main>
 
-      {currentQuestion.question_type !== 'columnar' && (
-        <div className="keypad-container">
-          <NumericKeypad
-            onDigitClick={handleKeypadDigit}
-            onClear={handleKeypadClear}
-            onConfirm={handleSubmitAnswer}
-            disabled={isAnswerSubmitted || isLoading}
-          />
-        </div>
-      )}
-
-      {currentQuestion.question_type === 'columnar' && !isAnswerSubmitted && (
-        <div className="columnar-submit-container">
-          <button
-            onClick={handleSubmitColumnarAnswer}
-            className="control-button submit-columnar-button button-interactive"
-            disabled={
-              isLoading ||
-              !columnarResultDigits?.every((digit) => digit !== null) ||
-              !columnarOperandDigits?.every((row) =>
-                row.every((digit) => digit !== null)
-              )
-            }
-          >
-            提交答案
-          </button>
-        </div>
-      )}
+      <div className="keypad-container">
+        <NumericKeypad
+          onDigitClick={
+            currentQuestion.question_type === 'columnar'
+              ? handleColumnarKeypadDigit
+              : handleKeypadDigit
+          }
+          onClear={
+            currentQuestion.question_type === 'columnar'
+              ? handleColumnarKeypadClear
+              : handleKeypadClear
+          }
+          onConfirm={
+            currentQuestion.question_type === 'columnar'
+              ? handleSubmitColumnarAnswer
+              : handleSubmitAnswer
+          }
+          disabled={isAnswerSubmitted || isLoading}
+        />
+      </div>
 
       <footer className="practice-controls">
         {isAnswerSubmitted && !isSessionOver && (

@@ -71,6 +71,12 @@
   color: var(--text-secondary);
 }
 
+.columnar-operand-input.active {
+  border-color: var(--primary-indigo);
+  box-shadow: 0 0 0 3px rgba(63, 81, 181, 0.2);
+  background-color: rgba(63, 81, 181, 0.05);
+}
+
 .columnar-operation-symbol {
   width: 40px; /* Match digit width */
   height: 50px;
@@ -138,6 +144,12 @@
   border-color: var(--border-color);
   background-color: var(--surface);
   color: var(--text-secondary);
+}
+
+.columnar-result-input.active {
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+  background-color: rgba(76, 175, 80, 0.05);
 }
 
 /* Remove spinners for all input types */
