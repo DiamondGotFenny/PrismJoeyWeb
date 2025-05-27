@@ -388,9 +388,7 @@ const PracticePage: React.FC = () => {
           className="question-display question-enter-active"
           key={questionAnimationKey}
         >
-          <span className="operand">{currentQuestion.operand1}</span>
-          <span className="operator">{currentQuestion.operation}</span>
-          <span className="operand">{currentQuestion.operand2}</span>
+          <span className="expression">{currentQuestion.question_string}</span>
           <span className="equals-sign">=</span>
           <span className="answer-placeholder">?</span>
         </div>
