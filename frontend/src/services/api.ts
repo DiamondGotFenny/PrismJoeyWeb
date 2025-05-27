@@ -102,7 +102,7 @@ export const submitAnswer = async (
       payload
     );
     return response.data;
-  } catch (error)
+  } catch (error) {
     console.error('Error submitting answer:', error);
     throw error;
   }
