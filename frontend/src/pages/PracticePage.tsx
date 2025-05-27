@@ -9,6 +9,7 @@ import {
 } from '../services/api';
 import NumericKeypad from '../components/NumericKeypad';
 import FeedbackDisplay from '../components/FeedbackDisplay';
+import ColumnarCalculation from '../components/ColumnarCalculation'; // Import ColumnarCalculation
 import '../styles/PracticePage.css';
 
 const PracticePage: React.FC = () => {
@@ -18,6 +19,8 @@ const PracticePage: React.FC = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [currentAnswer, setCurrentAnswer] = useState<string>('');
+  // State for columnar answer parts
+  const [columnarResultDigits, setColumnarResultDigits] = useState<(number | null)[] | null>(null);
   const [feedback, setFeedback] = useState<{
     isCorrect: boolean | null;
     message: string;
@@ -256,6 +259,7 @@ const PracticePage: React.FC = () => {
     } else {
       navigate('/difficulty-selection'); // Fallback if difficulty ID is lost
     }
+  setColumnarResultDigits(null); // Reset columnar state
   };
 
   if (isSessionOver) {
@@ -369,6 +373,11 @@ const PracticePage: React.FC = () => {
   if (!currentQuestion)
     return <div className="loading-message">题目加载中...</div>; // Should be brief
 
+  const handleColumnarAnswerChange = (answerString: string, resultDigits: (number | null)[]) => {
+    setCurrentAnswer(answerString);
+    setColumnarResultDigits(resultDigits);
+  };
+
   return (
     <div className="practice-container">
       <header className="practice-header">
@@ -384,17 +393,26 @@ const PracticePage: React.FC = () => {
       </header>
 
       <main className="question-area">
-        <div
-          className="question-display question-enter-active"
-          key={questionAnimationKey}
-        >
-          <span className="expression">{currentQuestion.question_string}</span>
-          <span className="equals-sign">=</span>
-          <span className="answer-placeholder">?</span>
-        </div>
+        {currentQuestion.question_type === 'columnar' ? (
+          <ColumnarCalculation
+            question={currentQuestion}
+            onAnswerChange={handleColumnarAnswerChange}
+          />
+        ) : (
+          <div
+            className="question-display question-enter-active"
+            key={questionAnimationKey}
+          >
+            <span className="expression">{currentQuestion.question_string}</span>
+            <span className="equals-sign">=</span>
+            <span className="answer-placeholder">?</span>
+          </div>
+        )}
 
-        <div className="user-answer-display">{currentAnswer || '_'}</div>
-
+        {currentQuestion.question_type !== 'columnar' && (
+          <div className="user-answer-display">{currentAnswer || '_'}</div>
+        )}
+        
         <FeedbackDisplay
           isCorrect={feedback.isCorrect}
           correctMessage={feedback.message}
@@ -404,14 +422,16 @@ const PracticePage: React.FC = () => {
         />
       </main>
 
-      <div className="keypad-container">
-        <NumericKeypad
-          onDigitClick={handleKeypadDigit}
-          onClear={handleKeypadClear}
-          onConfirm={handleSubmitAnswer}
-          disabled={isAnswerSubmitted || isLoading}
-        />
-      </div>
+      {currentQuestion.question_type !== 'columnar' && (
+        <div className="keypad-container">
+          <NumericKeypad
+            onDigitClick={handleKeypadDigit}
+            onClear={handleKeypadClear}
+            onConfirm={handleSubmitAnswer}
+            disabled={isAnswerSubmitted || isLoading}
+          />
+        </div>
+      )}
 
       <footer className="practice-controls">
         {isAnswerSubmitted && !isSessionOver && (
