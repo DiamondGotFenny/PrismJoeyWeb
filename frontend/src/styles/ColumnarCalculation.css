@@ -2,58 +2,92 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-family: monospace; /* Ensures digits have similar width */
-  font-size: 1.5em; /* Larger font for readability */
+  font-family: var(
+    --font-family-title
+  ); /* Use title font to match question display */
+  font-size: 2.5rem; /* Larger font to match question display scale */
   margin: 20px;
+  padding: 30px;
+  background-color: var(--surface);
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  min-height: 200px;
 }
 
 .columnar-operands {
   display: flex;
   flex-direction: column;
   align-items: flex-end; /* Align numbers to the right */
+  margin-bottom: 10px;
 }
 
 .columnar-operand-row {
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 2px 0;
+  padding: 8px 0;
 }
 
 .columnar-operand-digit,
 .columnar-operand-input {
-  width: 20px; /* Fixed width for each digit cell */
-  height: 30px;
+  width: 40px; /* Larger width for better visibility */
+  height: 50px; /* Larger height to match the increased font size */
   text-align: center;
-  padding: 0 2px;
+  font-size: 1em; /* Inherit from container */
+  font-family: var(--font-family-title);
+  margin: 0 2px; /* Slightly larger gap */
   box-sizing: border-box;
-  font-size: 1em; /* Match operand font size */
-  margin: 0 1px; /* Small gap between inputs/digits */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .columnar-operand-digit {
-  border: none; /* No border for pre-filled digits */
+  border: none;
   background-color: transparent;
-  padding-top: 4px; /* Align text vertically with input */
+  color: var(--text-primary);
 }
 
 .columnar-operand-input {
-  border: 1px solid #000; /* Make input fields clear */
-  padding: 0; /* Remove default padding for inputs */
+  border: 2px solid var(--primary-blue);
+  border-radius: 6px;
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-weight: 500;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.columnar-operand-input:focus {
+  outline: none;
+  border-color: var(--primary-indigo);
+  box-shadow: 0 0 0 3px rgba(63, 81, 181, 0.1);
+}
+
+.columnar-operand-input:disabled {
+  border-color: var(--border-color);
+  background-color: var(--surface);
+  color: var(--text-secondary);
 }
 
 .columnar-operation-symbol {
-  width: 20px; /* Width for the operator symbol */
-  text-align: right;
-  padding-right: 5px; /* Space between operator and number */
+  width: 40px; /* Match digit width */
+  height: 50px;
+  text-align: center;
+  padding-right: 8px;
   box-sizing: border-box;
+  color: var(--primary-red);
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .columnar-line {
-  width: 100%; /* Make line span the width of the numbers */
-  border-bottom: 2px solid black;
-  margin-top: 5px;
-  margin-bottom: 5px;
+  width: 100%;
+  border-bottom: 3px solid var(--text-primary);
+  margin: 15px 0;
 }
 
 .columnar-result {
@@ -64,27 +98,49 @@
 
 .columnar-result-digit,
 .columnar-result-input {
-  width: 20px; /* Fixed width for each digit cell */
-  height: 30px;
+  width: 40px; /* Match operand width */
+  height: 50px; /* Match operand height */
   text-align: center;
-  font-size: 1em; /* Match operand font size */
-  border: 1px solid #ccc;
-  margin: 0 1px; /* Small gap between inputs/digits */
+  font-size: 1em;
+  font-family: var(--font-family-title);
+  margin: 0 2px;
   box-sizing: border-box;
-  padding: 0; /* Remove default padding */
-}
-
-.columnar-result-input {
-  border: 1px solid #000; /* Make input fields clear */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .columnar-result-digit {
-  border: none; /* No border for pre-filled digits */
+  border: none;
   background-color: transparent;
-  padding-top: 4px; /* Align text vertically with input */
+  color: var(--primary-green);
+  font-weight: 600;
 }
 
-/* Adjust input to remove spinners for number type if used, though text is safer for single digit */
+.columnar-result-input {
+  border: 2px solid var(--primary-green);
+  border-radius: 6px;
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-weight: 500;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.columnar-result-input:focus {
+  outline: none;
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.columnar-result-input:disabled {
+  border-color: var(--border-color);
+  background-color: var(--surface);
+  color: var(--text-secondary);
+}
+
+/* Remove spinners for all input types */
 input[type='text'].columnar-result-input,
 input[type='text'].columnar-operand-input {
   -moz-appearance: textfield; /* Firefox */
@@ -95,4 +151,38 @@ input[type='text'].columnar-operand-input::-webkit-outer-spin-button,
 input[type='text'].columnar-operand-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .columnar-calculation-container {
+    font-size: 2rem;
+    padding: 20px;
+  }
+
+  .columnar-operand-digit,
+  .columnar-operand-input,
+  .columnar-result-digit,
+  .columnar-result-input,
+  .columnar-operation-symbol {
+    width: 35px;
+    height: 45px;
+  }
+}
+
+@media (max-width: 480px) {
+  .columnar-calculation-container {
+    font-size: 1.8rem;
+    padding: 15px;
+  }
+
+  .columnar-operand-digit,
+  .columnar-operand-input,
+  .columnar-result-digit,
+  .columnar-result-input,
+  .columnar-operation-symbol {
+    width: 30px;
+    height: 40px;
+    margin: 0 1px;
+  }
 }

@@ -9,11 +9,13 @@ interface ColumnarCalculationProps {
     operandsWithBlanks: (number | null)[][],
     resultDigits: (number | null)[]
   ) => void;
+  showCorrectAnswer?: boolean;
 }
 
 const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
   question,
   onAnswerChange,
+  showCorrectAnswer = false,
 }) => {
   const {
     columnar_operands,
@@ -29,8 +31,30 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
 
   useEffect(() => {
     if (columnar_operands) {
-      // Deep copy the operands to allow user input
-      setOperandDigits(columnar_operands.map((row) => [...row]));
+      if (showCorrectAnswer) {
+        // Show the complete correct answer by reconstructing from original operands
+        const correctOperands = question.operands || [];
+        const maxDigits = Math.max(
+          ...columnar_operands.map((row) => row.length)
+        );
+
+        const reconstructedOperands = correctOperands.map((num) => {
+          const digits = num
+            .toString()
+            .split('')
+            .map((d) => parseInt(d, 10));
+          // Pad with leading zeros to match the expected length
+          while (digits.length < maxDigits) {
+            digits.unshift(0);
+          }
+          return digits;
+        });
+
+        setOperandDigits(reconstructedOperands);
+      } else {
+        // Deep copy the operands to allow user input
+        setOperandDigits(columnar_operands.map((row) => [...row]));
+      }
       // Initialize refs array for operands
       inputRefs.current = columnar_operands.map((row) => row.map(() => null));
     } else {
@@ -39,14 +63,31 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
     }
 
     if (columnar_result_placeholders) {
-      setResultDigits([...columnar_result_placeholders]);
+      if (showCorrectAnswer) {
+        // Show the complete correct result
+        const correctAnswer = question.correct_answer;
+        const maxDigits = columnar_result_placeholders.length;
+        const resultStr = correctAnswer.toString().padStart(maxDigits, '0');
+        const correctResultDigits = resultStr
+          .split('')
+          .map((d) => parseInt(d, 10));
+        setResultDigits(correctResultDigits);
+      } else {
+        setResultDigits([...columnar_result_placeholders]);
+      }
       // Initialize refs array for result
       resultInputRefs.current = columnar_result_placeholders.map(() => null);
     } else {
       setResultDigits([]);
       resultInputRefs.current = [];
     }
-  }, [columnar_operands, columnar_result_placeholders]);
+  }, [
+    columnar_operands,
+    columnar_result_placeholders,
+    showCorrectAnswer,
+    question.operands,
+    question.correct_answer,
+  ]);
 
   const handleOperandInputChange = (
     rowIndex: number,
@@ -236,7 +277,7 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
               </span>
             )}
             {operandRow.map((digit, digitIndex) =>
-              digit !== null ? (
+              digit !== null || showCorrectAnswer ? (
                 <span
                   key={`operand-${rowIndex}-digit-${digitIndex}`}
                   className="columnar-operand-digit"
@@ -269,6 +310,7 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
                   }
                   pattern="\d*"
                   inputMode="numeric"
+                  disabled={showCorrectAnswer}
                 />
               )
             )}
@@ -280,7 +322,7 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
         {/* Invisible symbol for alignment with result */}
         <span className="columnar-operation-symbol">&nbsp;</span>
         {resultDigits.map((digit, index) =>
-          digit !== null ? (
+          digit !== null || showCorrectAnswer ? (
             <span
               key={`result-digit-${index}`}
               className="columnar-result-digit"
@@ -305,6 +347,7 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
               onKeyDown={(e) => handleResultKeyDown(e, index)}
               pattern="\d*" // Hint for numeric input, though validation is in JS
               inputMode="numeric" // Show numeric keyboard on mobile
+              disabled={showCorrectAnswer}
             />
           )
         )}

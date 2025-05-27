@@ -481,6 +481,7 @@ const PracticePage: React.FC = () => {
           <ColumnarCalculation
             question={currentQuestion}
             onAnswerChange={handleColumnarAnswerChange}
+            showCorrectAnswer={isAnswerSubmitted}
           />
         ) : (
           <div

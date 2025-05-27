@@ -40,36 +40,53 @@ def generate_columnar_question(difficulty_level: DifficultyLevel, session_id: UU
     columnar_operands = [list(op1_digits), list(op2_digits)]
     columnar_result_placeholders = list(result_digits)
 
-    # Strategy: Create 1-3 blanks across operands and result
-    # Ensure at least one significant digit remains visible in each row
-    total_positions = []
+    # Strategy: Create exactly 1-2 blanks, preferring operands over result
+    # This creates more meaningful practice like ?6 + ?6 = 22
+    operand_positions = []
+    result_positions = []
     
-    # Add operand positions (row_index, digit_index)
+    # Add operand positions (prioritize non-leading positions)
     for row_idx in range(len(columnar_operands)):
         for digit_idx in range(len(columnar_operands[row_idx])):
-            # Skip leading zeros in operands as they're not meaningful blanks
+            # Skip leading zeros but include meaningful digits
             if not (columnar_operands[row_idx][digit_idx] == 0 and digit_idx == 0 and overall_max_digits > 1):
-                total_positions.append(('operand', row_idx, digit_idx))
+                operand_positions.append(('operand', row_idx, digit_idx))
     
-    # Add result positions
+    # Add result positions with lower priority
     for digit_idx in range(len(columnar_result_placeholders)):
-        # Skip leading zeros in result as they're not meaningful blanks
         if not (columnar_result_placeholders[digit_idx] == 0 and digit_idx == 0 and overall_max_digits > 1):
-            total_positions.append(('result', 0, digit_idx))
+            result_positions.append(('result', 0, digit_idx))
 
-    # Determine number of blanks (1-3, but ensure we don't blank everything)
-    max_blanks = min(3, len(total_positions) - 2)  # Leave at least 2 digits visible
-    num_blanks = random.randint(1, max(1, max_blanks))
+    # Determine number of blanks (1-2, prefer 2 for better practice)
+    num_blanks = 2 if len(operand_positions) >= 2 else 1
     
-    # Randomly select positions to blank
-    if total_positions:
-        blank_positions = random.sample(total_positions, min(num_blanks, len(total_positions)))
+    # Select positions strategically - prefer operands
+    blank_positions = []
+    if num_blanks == 2 and len(operand_positions) >= 2:
+        # Try to get 2 operand positions from different rows if possible
+        row_0_positions = [pos for pos in operand_positions if pos[1] == 0]
+        row_1_positions = [pos for pos in operand_positions if pos[1] == 1]
         
-        for pos_type, row_idx, digit_idx in blank_positions:
-            if pos_type == 'operand':
-                columnar_operands[row_idx][digit_idx] = None
-            elif pos_type == 'result':
-                columnar_result_placeholders[digit_idx] = None
+        if row_0_positions and row_1_positions:
+            # Pick one from each row for balanced practice
+            blank_positions.append(random.choice(row_0_positions))
+            blank_positions.append(random.choice(row_1_positions))
+        else:
+            # Fall back to any 2 operand positions
+            blank_positions = random.sample(operand_positions, 2)
+    elif num_blanks == 1:
+        # For 1 blank, prefer operand
+        if operand_positions:
+            blank_positions = [random.choice(operand_positions)]
+        elif result_positions:
+            blank_positions = [random.choice(result_positions)]
+    
+    # Apply the blanks
+    for pos_type, row_idx, digit_idx in blank_positions:
+        if pos_type == 'operand':
+            columnar_operands[row_idx][digit_idx] = None
+        elif pos_type == 'result':
+            columnar_result_placeholders[digit_idx] = None
 
     question_string = f"{num1} {operation} {num2}"
 
