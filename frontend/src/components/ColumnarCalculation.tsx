@@ -49,31 +49,53 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
   useEffect(() => {
     if (columnar_operands) {
       if (showCorrectAnswer) {
-        // Show the complete correct answer by reconstructing from original operands
-        const correctOperands = question.operands || [];
-        const maxDigits = Math.max(
-          ...columnar_operands.map((row) => row.length)
-        );
+        // Logic to show correct answer (reconstruct from question.operands and question.correct_answer)
+        // This part needs to be careful as question.correct_answer is now Optional[int]
+        // For columnar, if we want to show a "filled" state, it would be based on original operands and their sum.
+        const originalOperands = question.operands || []; // These are the full numbers
+        if (originalOperands.length > 0 && columnar_operands.length > 0) {
+          const overallMaxDigits = Math.max(
+            ...columnar_operands.map((row) => row.length),
+            columnar_result_placeholders?.length || 0
+          );
 
-        const reconstructedOperands = correctOperands.map((num) => {
-          const digits = num
-            .toString()
-            .split('')
-            .map((d) => parseInt(d, 10));
-          // Pad with leading zeros to match the expected length
-          while (digits.length < maxDigits) {
-            digits.unshift(0);
+          const displayedOperands = originalOperands.map((num) =>
+            num
+              .toString()
+              .padStart(overallMaxDigits, '0')
+              .split('')
+              .map((d) => parseInt(d, 10))
+          );
+          setOperandDigits(displayedOperands);
+
+          if (question.columnar_operation === '+') {
+            const sum = originalOperands.reduce((acc, val) => acc + val, 0);
+            const displayedResult = sum
+              .toString()
+              .padStart(overallMaxDigits, '0')
+              .split('')
+              .map((d) => parseInt(d, 10));
+            setResultDigits(displayedResult);
+          } // Add other operations if needed for showCorrectAnswer
+          else {
+            // Fallback for showing correct answer if operation not handled or result not available
+            setResultDigits((columnar_result_placeholders || []).map(() => 0));
           }
-          return digits;
-        });
-
-        setOperandDigits(reconstructedOperands);
+        } else {
+          // Fallback if original operands are not available
+          setOperandDigits(
+            columnar_operands.map((row) => row.map((d) => (d === null ? 0 : d)))
+          );
+          setResultDigits(
+            (columnar_result_placeholders || []).map((d) =>
+              d === null ? 0 : d
+            )
+          );
+        }
       } else {
-        // Deep copy the operands to allow user input
         const operandsWithBlanks = columnar_operands.map((row) => [...row]);
         setOperandDigits(operandsWithBlanks);
       }
-      // Initialize refs array for operands
       inputRefs.current = columnar_operands.map((row) => row.map(() => null));
     } else {
       setOperandDigits([]);
@@ -81,19 +103,10 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
     }
 
     if (columnar_result_placeholders) {
-      if (showCorrectAnswer) {
-        // Show the complete correct result
-        const correctAnswer = question.correct_answer;
-        const maxDigits = columnar_result_placeholders.length;
-        const resultStr = correctAnswer.toString().padStart(maxDigits, '0');
-        const correctResultDigits = resultStr
-          .split('')
-          .map((d) => parseInt(d, 10));
-        setResultDigits(correctResultDigits);
-      } else {
+      if (!showCorrectAnswer) {
+        // only set if not showing correct answer, as above handles it
         setResultDigits([...columnar_result_placeholders]);
       }
-      // Initialize refs array for result
       resultInputRefs.current = columnar_result_placeholders.map(() => null);
     } else {
       setResultDigits([]);
@@ -103,8 +116,8 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
     columnar_operands,
     columnar_result_placeholders,
     showCorrectAnswer,
-    question.operands,
-    question.correct_answer,
+    question.operands, // Added dependency
+    question.columnar_operation, // Added dependency
   ]);
 
   // Update internal state when external state changes (from keypad)
@@ -125,47 +138,43 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
     digitIndex: number,
     value: string
   ) => {
-    // Allow only single digit or empty string to clear
     if (value === '' || (/^\d$/.test(value) && value.length <= 1)) {
       const newDigit = value === '' ? null : parseInt(value, 10);
-      const newOperandDigits = [...operandDigits];
+      const newOperandDigits = operandDigits.map((row) => [...row]); // Ensure deep copy for state update
       newOperandDigits[rowIndex][digitIndex] = newDigit;
       setOperandDigits(newOperandDigits);
-
-      // Notify parent component
       notifyAnswerChange(newOperandDigits, resultDigits);
 
-      // Focus management for operands
       if (value !== '' && digitIndex < newOperandDigits[rowIndex].length - 1) {
         const nextInput = inputRefs.current[rowIndex][digitIndex + 1];
         if (nextInput && newOperandDigits[rowIndex][digitIndex + 1] === null) {
           nextInput.focus();
         } else {
-          // Find next input field in the same row or move to next row
-          findAndFocusNextInput(rowIndex, digitIndex, 'forward');
+          findAndFocusNextInput(
+            rowIndex,
+            digitIndex,
+            'forward',
+            newOperandDigits,
+            resultDigits
+          );
         }
       }
     }
   };
 
   const handleResultInputChange = (index: number, value: string) => {
-    // Allow only single digit or empty string to clear
     if (value === '' || (/^\d$/.test(value) && value.length <= 1)) {
       const newDigit = value === '' ? null : parseInt(value, 10);
-      const newResultDigits = [...resultDigits];
+      const newResultDigits = [...resultDigits]; // Ensure copy for state update
       newResultDigits[index] = newDigit;
       setResultDigits(newResultDigits);
-
-      // Notify parent component
       notifyAnswerChange(operandDigits, newResultDigits);
 
-      // Focus next input if a digit was entered and it's not the last input
       if (value !== '' && index < newResultDigits.length - 1) {
         const nextInput = resultInputRefs.current[index + 1];
         if (nextInput && newResultDigits[index + 1] === null) {
           nextInput.focus();
         } else {
-          // Find next available input field
           for (let i = index + 1; i < resultInputRefs.current.length; i++) {
             if (resultInputRefs.current[i] && newResultDigits[i] === null) {
               resultInputRefs.current[i]?.focus();
@@ -180,10 +189,11 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
   const findAndFocusNextInput = (
     currentRow: number,
     currentDigit: number,
-    direction: 'forward' | 'backward'
+    direction: 'forward' | 'backward', // direction might not be fully used here yet
+    currentOperandDigits: (number | null)[][],
+    currentResultDigits: (number | null)[]
   ) => {
     if (direction === 'forward') {
-      // Try to find next input in same row
       for (
         let i = currentDigit + 1;
         i < inputRefs.current[currentRow].length;
@@ -191,27 +201,25 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
       ) {
         if (
           inputRefs.current[currentRow][i] &&
-          operandDigits[currentRow][i] === null
+          currentOperandDigits[currentRow][i] === null
         ) {
           inputRefs.current[currentRow][i]?.focus();
           return;
         }
       }
-      // Try next row
       for (let row = currentRow + 1; row < inputRefs.current.length; row++) {
         for (let digit = 0; digit < inputRefs.current[row].length; digit++) {
           if (
             inputRefs.current[row][digit] &&
-            operandDigits[row][digit] === null
+            currentOperandDigits[row][digit] === null
           ) {
             inputRefs.current[row][digit]?.focus();
             return;
           }
         }
       }
-      // Try result row
       for (let i = 0; i < resultInputRefs.current.length; i++) {
-        if (resultInputRefs.current[i] && resultDigits[i] === null) {
+        if (resultInputRefs.current[i] && currentResultDigits[i] === null) {
           resultInputRefs.current[i]?.focus();
           return;
         }
@@ -223,7 +231,6 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
     newOperandDigits: (number | null)[][],
     newResultDigits: (number | null)[]
   ) => {
-    // Create a combined answer string for validation (this might need adjustment based on backend expectations)
     const operandStrings = newOperandDigits.map((row) =>
       row.map((digit) => (digit !== null ? digit.toString() : '')).join('')
     );

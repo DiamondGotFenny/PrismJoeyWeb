@@ -54,6 +54,159 @@ const PracticePage: React.FC = () => {
     ?.difficultyLevelId as number;
   const difficultyNameFromState = location.state?.difficultyName as string; // Optional: for display
 
+  const findNextFocusable = (
+    currentOperands: (number | null)[][],
+    currentResult: (number | null)[],
+    sourceType: 'operand' | 'result',
+    sourceRowIndex?: number,
+    sourceDigitIndex?: number
+  ) => {
+    if (
+      sourceType === 'operand' &&
+      sourceRowIndex !== undefined &&
+      sourceDigitIndex !== undefined
+    ) {
+      for (
+        let i = sourceDigitIndex + 1;
+        i < currentOperands[sourceRowIndex].length;
+        i++
+      ) {
+        if (currentOperands[sourceRowIndex][i] === null) {
+          setActiveColumnarInput({
+            type: 'operand',
+            rowIndex: sourceRowIndex,
+            digitIndex: i,
+          });
+          return;
+        }
+      }
+      for (let r = sourceRowIndex + 1; r < currentOperands.length; r++) {
+        for (let d = 0; d < currentOperands[r].length; d++) {
+          if (currentOperands[r][d] === null) {
+            setActiveColumnarInput({
+              type: 'operand',
+              rowIndex: r,
+              digitIndex: d,
+            });
+            return;
+          }
+        }
+      }
+    }
+    const startIndex =
+      sourceType === 'result' && sourceDigitIndex !== undefined
+        ? sourceDigitIndex + 1
+        : 0;
+    for (let i = startIndex; i < currentResult.length; i++) {
+      if (currentResult[i] === null) {
+        setActiveColumnarInput({ type: 'result', digitIndex: i });
+        return;
+      }
+    }
+    setActiveColumnarInput(null);
+  };
+
+  const findPreviousFocusableAndClear = (
+    operands: (number | null)[][],
+    result: (number | null)[],
+    sourceType: 'operand' | 'result',
+    sourceRowIndex?: number,
+    sourceDigitIndex?: number
+  ) => {
+    let targetToClearAndFocus: {
+      type: 'operand' | 'result';
+      rowIndex?: number;
+      digitIndex: number;
+    } | null = null;
+    let focusOnlyTarget: {
+      type: 'operand' | 'result';
+      rowIndex?: number;
+      digitIndex: number;
+    } | null = null;
+
+    if (sourceType === 'result' && sourceDigitIndex !== undefined) {
+      for (let i = sourceDigitIndex - 1; i >= 0; i--) {
+        if (result[i] !== null) {
+          targetToClearAndFocus = { type: 'result', digitIndex: i };
+          break;
+        } else if (result[i] === null && !focusOnlyTarget) {
+          focusOnlyTarget = { type: 'result', digitIndex: i };
+        }
+      }
+      if (targetToClearAndFocus) {
+        /* proceed to clear */
+      } else {
+        sourceType = 'operand';
+        sourceRowIndex = operands.length - 1;
+        sourceDigitIndex = operands[operands.length - 1]?.length || 0;
+        if (focusOnlyTarget) {
+          setActiveColumnarInput(focusOnlyTarget);
+          return;
+        }
+      }
+    }
+
+    if (
+      sourceType === 'operand' &&
+      sourceRowIndex !== undefined &&
+      sourceDigitIndex !== undefined
+    ) {
+      for (let i = sourceDigitIndex - 1; i >= 0; i--) {
+        if (operands[sourceRowIndex][i] !== null) {
+          targetToClearAndFocus = {
+            type: 'operand',
+            rowIndex: sourceRowIndex,
+            digitIndex: i,
+          };
+          break;
+        } else if (operands[sourceRowIndex][i] === null && !focusOnlyTarget) {
+          focusOnlyTarget = {
+            type: 'operand',
+            rowIndex: sourceRowIndex,
+            digitIndex: i,
+          };
+        }
+      }
+      if (!targetToClearAndFocus) {
+        for (let r = sourceRowIndex - 1; r >= 0; r--) {
+          for (let d = operands[r].length - 1; d >= 0; d--) {
+            if (operands[r][d] !== null) {
+              targetToClearAndFocus = {
+                type: 'operand',
+                rowIndex: r,
+                digitIndex: d,
+              };
+              break;
+            } else if (operands[r][d] === null && !focusOnlyTarget) {
+              focusOnlyTarget = { type: 'operand', rowIndex: r, digitIndex: d };
+            }
+          }
+          if (targetToClearAndFocus) break;
+        }
+      }
+    }
+
+    if (targetToClearAndFocus) {
+      const newOperands = operands.map((row) => [...row]);
+      const newResult = [...result];
+      if (
+        targetToClearAndFocus.type === 'operand' &&
+        targetToClearAndFocus.rowIndex !== undefined
+      ) {
+        newOperands[targetToClearAndFocus.rowIndex][
+          targetToClearAndFocus.digitIndex
+        ] = null;
+      } else if (targetToClearAndFocus.type === 'result') {
+        newResult[targetToClearAndFocus.digitIndex] = null;
+      }
+      setActiveColumnarInput(targetToClearAndFocus);
+      const combined = `${newOperands.map((r) => r.map((d) => d ?? '').join('')).join('|')}=${newResult.map((d) => d ?? '').join('')}`;
+      handleColumnarAnswerChange(combined, newOperands, newResult);
+    } else if (focusOnlyTarget) {
+      setActiveColumnarInput(focusOnlyTarget);
+    }
+  };
+
   const handleStartSession = useCallback(async () => {
     if (!difficultyLevelIdFromState) {
       setError('未选择难度级别。请返回并选择一个难度。');
@@ -300,27 +453,26 @@ const PracticePage: React.FC = () => {
     ); // Error during practice
 
   const handlePracticeAgain = () => {
-    // Reset state for a new session with the same difficulty
-    setIsSessionOver(false);
-    setSessionDataForSummary(null);
+    // Reset all relevant states to start a new session with the same difficulty
+    setSessionId(null);
+    setCurrentQuestion(null);
     setCurrentAnswer('');
-    setFeedback({
-      isCorrect: null,
-      message: '',
-      correctAnswer: undefined,
-      show: false,
-    });
+    setColumnarOperandDigits(null);
+    setColumnarResultDigits(null);
+    setActiveColumnarInput(null);
+    setFeedback({ isCorrect: null, message: '', show: false });
     setScore(0);
     setQuestionNumber(0);
-    // Total questions should remain the same or be re-fetched if dynamic
-    // Ensure difficultyLevelIdFromState is still valid
-    if (difficultyLevelIdFromState) {
-      handleStartSession(); // This will re-initialize the session
-    } else {
-      navigate('/difficulty-selection'); // Fallback if difficulty ID is lost
-    }
-    setColumnarOperandDigits(null); // Reset columnar operand state
-    setColumnarResultDigits(null); // Reset columnar result state
+    // totalQuestions remains the same or could be re-fetched if settings change
+    setIsLoading(true);
+    setError(null);
+    setIsSessionOver(false);
+    setIsAnswerSubmitted(false);
+    setQuestionAnimationKey(0); // Reset animation
+    setSessionDataForSummary(null);
+
+    // Restart the session (which will fetch new questions)
+    handleStartSession();
   };
 
   if (isSessionOver) {
@@ -444,30 +596,58 @@ const PracticePage: React.FC = () => {
     setColumnarResultDigits(resultDigits);
 
     // Auto-focus first available input if none is currently active
-    if (!activeColumnarInput && currentQuestion) {
+    if (
+      !activeColumnarInput &&
+      currentQuestion &&
+      currentQuestion.question_type === 'columnar'
+    ) {
+      // Check if currentQuestion.columnar_operands and currentQuestion.columnar_result_placeholders exist
+      const operands = currentQuestion.columnar_operands;
+      const resultPlaceholders = currentQuestion.columnar_result_placeholders;
+
       // Find first available operand input
-      for (let rowIndex = 0; rowIndex < operandsWithBlanks.length; rowIndex++) {
-        for (
-          let digitIndex = 0;
-          digitIndex < operandsWithBlanks[rowIndex].length;
-          digitIndex++
-        ) {
-          if (
-            currentQuestion.columnar_operands?.[rowIndex][digitIndex] === null
+      if (operands) {
+        for (let rowIndex = 0; rowIndex < operands.length; rowIndex++) {
+          for (
+            let digitIndex = 0;
+            digitIndex < operands[rowIndex].length;
+            digitIndex++
           ) {
-            setActiveColumnarInput({ type: 'operand', rowIndex, digitIndex });
-            return;
+            if (operands[rowIndex][digitIndex] === null) {
+              // Check if this input is already filled by the user recently
+              if (
+                !columnarOperandDigits ||
+                columnarOperandDigits[rowIndex]?.[digitIndex] === null
+              ) {
+                setActiveColumnarInput({
+                  type: 'operand',
+                  rowIndex,
+                  digitIndex,
+                });
+                return;
+              }
+            }
           }
         }
       }
 
       // If no operand inputs, try result inputs
-      for (let digitIndex = 0; digitIndex < resultDigits.length; digitIndex++) {
-        if (
-          currentQuestion.columnar_result_placeholders?.[digitIndex] === null
+      if (resultPlaceholders) {
+        for (
+          let digitIndex = 0;
+          digitIndex < resultPlaceholders.length;
+          digitIndex++
         ) {
-          setActiveColumnarInput({ type: 'result', digitIndex });
-          return;
+          if (resultPlaceholders[digitIndex] === null) {
+            // Check if this input is already filled by the user recently
+            if (
+              !columnarResultDigits ||
+              columnarResultDigits[digitIndex] === null
+            ) {
+              setActiveColumnarInput({ type: 'result', digitIndex });
+              return;
+            }
+          }
         }
       }
     }
@@ -482,164 +662,157 @@ const PracticePage: React.FC = () => {
   };
 
   const handleColumnarKeypadDigit = (digit: string) => {
-    if (!activeColumnarInput || !currentQuestion) {
-      return;
+    if (isAnswerSubmitted || !currentQuestion) return;
+
+    const currentOperandDigitsState = columnarOperandDigits
+      ? columnarOperandDigits.map((row) => [...row])
+      : currentQuestion.columnar_operands
+        ? currentQuestion.columnar_operands.map((row) => [...row])
+        : [];
+    const currentResultDigitsState = columnarResultDigits
+      ? [...columnarResultDigits]
+      : currentQuestion.columnar_result_placeholders
+        ? [...currentQuestion.columnar_result_placeholders]
+        : [];
+
+    let changed = false;
+    if (activeColumnarInput) {
+      const digitValue = parseInt(digit, 10);
+      if (activeColumnarInput.type === 'operand') {
+        const { rowIndex, digitIndex } = activeColumnarInput;
+        if (
+          rowIndex !== undefined &&
+          currentOperandDigitsState[rowIndex] &&
+          currentOperandDigitsState[rowIndex][digitIndex] === null
+        ) {
+          currentOperandDigitsState[rowIndex][digitIndex] = digitValue;
+          changed = true;
+          findNextFocusable(
+            currentOperandDigitsState,
+            currentResultDigitsState,
+            'operand',
+            rowIndex,
+            digitIndex
+          );
+        }
+      } else if (activeColumnarInput.type === 'result') {
+        const { digitIndex } = activeColumnarInput;
+        if (currentResultDigitsState[digitIndex] === null) {
+          currentResultDigitsState[digitIndex] = digitValue;
+          changed = true;
+          findNextFocusable(
+            currentOperandDigitsState,
+            currentResultDigitsState,
+            'result',
+            undefined,
+            digitIndex
+          );
+        }
+      }
     }
 
-    const { type, digitIndex, rowIndex } = activeColumnarInput;
-
-    if (type === 'operand' && rowIndex !== undefined) {
-      // Get current operand digits from the question or initialize
-      const currentOperands =
-        columnarOperandDigits ||
-        currentQuestion.columnar_operands?.map((row) => [...row]) ||
-        [];
-
-      const newOperandDigits = [...currentOperands];
-      newOperandDigits[rowIndex][digitIndex] = parseInt(digit, 10);
-
-      // Get current result digits
-      const currentResults = columnarResultDigits || [
-        ...(currentQuestion.columnar_result_placeholders || []),
-      ];
-
-      // Update the answer string for validation
-      const operandStrings = newOperandDigits.map((row) =>
+    if (changed) {
+      const operandStrings = currentOperandDigitsState.map((row) =>
         row.map((d) => (d !== null ? d.toString() : '')).join('')
       );
-      const resultString = currentResults
+      const resultString = currentResultDigitsState
         .map((d) => (d !== null ? d.toString() : ''))
         .join('');
       const combinedAnswer = `${operandStrings.join('|')}=${resultString}`;
 
-      // Call the answer change handler to update the component
       handleColumnarAnswerChange(
         combinedAnswer,
-        newOperandDigits,
-        currentResults
+        currentOperandDigitsState,
+        currentResultDigitsState
       );
-
-      // Move to next input (commented out to prevent confusing focus jumps)
-      // moveToNextColumnarInput();
-    } else if (type === 'result') {
-      // Get current result digits from the question or initialize
-      const currentResults = columnarResultDigits || [
-        ...(currentQuestion.columnar_result_placeholders || []),
-      ];
-
-      const newResultDigits = [...currentResults];
-      newResultDigits[digitIndex] = parseInt(digit, 10);
-
-      // Get current operand digits
-      const currentOperands =
-        columnarOperandDigits ||
-        currentQuestion.columnar_operands?.map((row) => [...row]) ||
-        [];
-
-      // Update the answer string for validation
-      const operandStrings = currentOperands.map((row) =>
-        row.map((d) => (d !== null ? d.toString() : '')).join('')
-      );
-      const resultString = newResultDigits
-        .map((d) => (d !== null ? d.toString() : ''))
-        .join('');
-      const combinedAnswer = `${operandStrings.join('|')}=${resultString}`;
-
-      // Call the answer change handler to update the component
-      handleColumnarAnswerChange(
-        combinedAnswer,
-        currentOperands,
-        newResultDigits
-      );
-
-      // Move to next input (commented out to prevent confusing focus jumps)
-      // moveToNextColumnarInput();
     }
   };
 
   const handleColumnarKeypadClear = () => {
-    if (!activeColumnarInput) return;
+    if (isAnswerSubmitted || !currentQuestion) return;
 
-    const { type, digitIndex, rowIndex } = activeColumnarInput;
+    const currentOperands = columnarOperandDigits
+      ? columnarOperandDigits.map((row) => [...row])
+      : currentQuestion.columnar_operands
+        ? currentQuestion.columnar_operands.map((row) => [...row])
+        : [];
+    const currentResult = columnarResultDigits
+      ? [...columnarResultDigits]
+      : currentQuestion.columnar_result_placeholders
+        ? [...currentQuestion.columnar_result_placeholders]
+        : [];
 
-    if (type === 'operand' && rowIndex !== undefined) {
-      // Get current operand digits from the question or initialize
-      const currentOperands =
-        columnarOperandDigits ||
-        currentQuestion.columnar_operands?.map((row) => [...row]) ||
-        [];
+    let didDirectClear = false;
+    if (activeColumnarInput) {
+      if (activeColumnarInput.type === 'operand') {
+        const { rowIndex, digitIndex } = activeColumnarInput;
+        if (
+          rowIndex !== undefined &&
+          currentOperands[rowIndex] &&
+          currentOperands[rowIndex][digitIndex] !== null
+        ) {
+          currentOperands[rowIndex][digitIndex] = null;
+          didDirectClear = true;
+        } else if (rowIndex !== undefined) {
+          findPreviousFocusableAndClear(
+            currentOperands,
+            currentResult,
+            'operand',
+            rowIndex,
+            digitIndex
+          );
+        }
+      } else if (activeColumnarInput.type === 'result') {
+        const { digitIndex } = activeColumnarInput;
+        if (currentResult[digitIndex] !== null) {
+          currentResult[digitIndex] = null;
+          didDirectClear = true;
+        } else {
+          findPreviousFocusableAndClear(
+            currentOperands,
+            currentResult,
+            'result',
+            undefined,
+            digitIndex
+          );
+        }
+      }
+    }
 
-      const newOperandDigits = [...currentOperands];
-      newOperandDigits[rowIndex][digitIndex] = null;
-
-      // Get current result digits
-      const currentResults = columnarResultDigits || [
-        ...(currentQuestion.columnar_result_placeholders || []),
-      ];
-
-      // Update the answer string for validation
-      const operandStrings = newOperandDigits.map((row) =>
-        row.map((d) => (d !== null ? d.toString() : '')).join('')
-      );
-      const resultString = currentResults
-        .map((d) => (d !== null ? d.toString() : ''))
-        .join('');
-      const combinedAnswer = `${operandStrings.join('|')}=${resultString}`;
-
-      // Call the answer change handler to update the component
-      handleColumnarAnswerChange(
-        combinedAnswer,
-        newOperandDigits,
-        currentResults
-      );
-    } else if (type === 'result') {
-      // Get current result digits from the question or initialize
-      const currentResults = columnarResultDigits || [
-        ...(currentQuestion.columnar_result_placeholders || []),
-      ];
-
-      const newResultDigits = [...currentResults];
-      newResultDigits[digitIndex] = null;
-
-      // Get current operand digits
-      const currentOperands =
-        columnarOperandDigits ||
-        currentQuestion.columnar_operands?.map((row) => [...row]) ||
-        [];
-
-      // Update the answer string for validation
+    if (didDirectClear) {
       const operandStrings = currentOperands.map((row) =>
         row.map((d) => (d !== null ? d.toString() : '')).join('')
       );
-      const resultString = newResultDigits
+      const resultString = currentResult
         .map((d) => (d !== null ? d.toString() : ''))
         .join('');
       const combinedAnswer = `${operandStrings.join('|')}=${resultString}`;
 
-      // Call the answer change handler to update the component
       handleColumnarAnswerChange(
         combinedAnswer,
         currentOperands,
-        newResultDigits
+        currentResult
       );
     }
   };
 
   const handleSubmitColumnarAnswer = async () => {
-    if (!sessionId || !currentQuestion || !columnarResultDigits) return;
+    if (
+      !sessionId ||
+      !currentQuestion ||
+      !columnarOperandDigits ||
+      !columnarResultDigits
+    )
+      return;
 
-    // Check if user has filled all blanks (both operands and result)
-    const hasAllOperandBlanks =
-      columnarOperandDigits?.every((row) =>
-        row.every((digit) => digit !== null)
-      ) ?? true;
-
-    const hasAllResultBlanks = columnarResultDigits.every(
+    const allOperandsFilled = columnarOperandDigits.every((row) =>
+      row.every((digit) => digit !== null)
+    );
+    const allResultFilled = columnarResultDigits.every(
       (digit) => digit !== null
     );
 
-    if (!hasAllOperandBlanks || !hasAllResultBlanks) {
-      // User hasn't filled all blanks yet
+    if (!allOperandsFilled || !allResultFilled) {
       setFeedback({
         isCorrect: null,
         message: '请填写所有空白处！',
@@ -651,88 +824,38 @@ const PracticePage: React.FC = () => {
       return;
     }
 
-    // For columnar questions, we need to validate both operands and result
-    // Check if the user filled in the operand blanks correctly
-    let isOperandsCorrect = true;
-    if (currentQuestion.columnar_operands && columnarOperandDigits) {
-      for (
-        let rowIndex = 0;
-        rowIndex < currentQuestion.columnar_operands.length;
-        rowIndex++
-      ) {
-        for (
-          let digitIndex = 0;
-          digitIndex < currentQuestion.columnar_operands[rowIndex].length;
-          digitIndex++
-        ) {
-          // If this position was originally null (a blank), check if user filled it correctly
-          if (
-            currentQuestion.columnar_operands[rowIndex][digitIndex] === null
-          ) {
-            // Get the correct digit from the original operands
-            const correctOperands = currentQuestion.operands || [];
-            const maxDigits = Math.max(
-              ...currentQuestion.columnar_operands.map((row) => row.length)
-            );
-            const correctDigits = correctOperands[rowIndex]
-              .toString()
-              .padStart(maxDigits, '0')
-              .split('')
-              .map((d) => parseInt(d, 10));
-
-            if (
-              columnarOperandDigits[rowIndex][digitIndex] !==
-              correctDigits[digitIndex]
-            ) {
-              isOperandsCorrect = false;
-              break;
-            }
-          }
-        }
-        if (!isOperandsCorrect) break;
-      }
-    }
-
-    // Check if the result is correct
-    const userResultNumber = parseInt(
-      columnarResultDigits.map((d) => d?.toString()).join(''),
-      10
-    );
-    const isResultCorrect = userResultNumber === currentQuestion.correct_answer;
-
-    // Overall correctness
-    const isCorrect = isOperandsCorrect && isResultCorrect;
-
     setIsLoading(true);
     setIsAnswerSubmitted(true);
+
+    const filledOperandsForPayload = columnarOperandDigits.map((row) =>
+      row.map((digit) => digit as number)
+    );
+    const filledResultForPayload = columnarResultDigits.map(
+      (digit) => digit as number
+    );
 
     try {
       const payload: AnswerPayload = {
         session_id: sessionId,
         question_id: currentQuestion.id,
-        user_answer: userResultNumber,
+        user_filled_operands: filledOperandsForPayload,
+        user_filled_result: filledResultForPayload,
       };
-
-      // We still submit to backend, but we do our own validation for columnar questions
       const resultQuestion = await submitAnswer(payload);
 
-      // Override the backend's is_correct with our own validation for columnar questions
-      resultQuestion.is_correct = isCorrect;
-
       setFeedback({
-        isCorrect: isCorrect,
-        message: isCorrect ? '答对了！🎉' : '再想想哦 🤔',
-        correctAnswer: isCorrect ? undefined : currentQuestion.correct_answer,
+        isCorrect: resultQuestion.is_correct ?? false,
+        message: resultQuestion.is_correct ? '答对了！🎉' : '再想想哦 🤔',
+        correctAnswer: undefined,
         show: true,
       });
 
-      if (isCorrect) {
+      if (resultQuestion.is_correct) {
         setScore((prev) => prev + 1);
       }
-      setCurrentQuestion(resultQuestion);
+
       setIsLoading(false);
 
-      // Check if this was the last question
       if (questionNumber >= totalQuestions) {
         setIsSessionOver(true);
         if (sessionId) {

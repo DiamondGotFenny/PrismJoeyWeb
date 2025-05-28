@@ -42,3 +42,7 @@ coverage/
 
 # MyPy
 .mypy_cache/
+
+# PowerShell
+start-dev.ps1
+

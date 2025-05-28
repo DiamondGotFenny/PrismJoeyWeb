@@ -7,19 +7,19 @@ from app.models.difficulty import DifficultyLevel # Assuming this is where Diffi
 class Question(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     session_id: UUID
-    operands: List[int]
-    operations: List[str]  # e.g., ["+", "-"]
-    question_string: str   # e.g., "10 + 5 - 3"
-    correct_answer: int
-    difficulty_level_id: int # Storing the ID of the difficulty level
-    question_type: str # e.g., "arithmetic" or "columnar"
-    columnar_operands: Optional[List[List[Optional[int]]]] = None
-    columnar_result_placeholders: Optional[List[Optional[int]]] = None
+    operands: List[int] # For columnar, these are the original numbers before blanks
+    operations: List[str]
+    question_string: str   # For columnar, e.g., "1? + ?3 = 25"
+    correct_answer: Optional[int] = None # Will be None for columnar type
+    difficulty_level_id: int
+    question_type: str # "arithmetic" or "columnar"
+    columnar_operands: Optional[List[List[Optional[int]]]] = None # e.g., [[1, None], [None, 3]]
+    columnar_result_placeholders: Optional[List[Optional[int]]] = None # e.g., [2, 5]
     columnar_operation: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    user_answer: Optional[int] = None
+    user_answer: Optional[int] = None # For columnar, stores the integer of user's result row
     is_correct: Optional[bool] = None
-    time_spent: Optional[float] = None # Seconds
+    time_spent: Optional[float] = None
     answered_at: Optional[datetime] = None
 
 class PracticeSession(BaseModel):

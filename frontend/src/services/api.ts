@@ -62,8 +62,10 @@ export interface PracticeSession {
 export interface AnswerPayload {
   session_id: string; // UUID
   question_id: string; // UUID
-  user_answer: number;
+  user_answer?: number; // For arithmetic
   time_spent?: number;
+  user_filled_operands?: number[][]; // For columnar
+  user_filled_result?: number[]; // For columnar
 }
 
 export const startPracticeSession = async (

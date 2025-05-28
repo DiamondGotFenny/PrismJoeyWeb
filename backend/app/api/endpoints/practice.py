@@ -357,8 +357,16 @@ async def get_next_question(session_id: UUID):
 class AnswerPayload(BaseModel):
     session_id: UUID
     question_id: UUID
-    user_answer: int
+    user_answer: Optional[int] = None # For arithmetic questions
     time_spent: Optional[float] = None
+    # For columnar questions
+    user_filled_operands: Optional[List[List[int]]] = None
+    user_filled_result: Optional[List[int]] = None
+
+def _digits_to_int(digits: List[int]) -> int:
+    """Converts a list of non-null digits to an integer."""
+    if not digits: return 0 # Or raise error, depending on desired handling for empty
+    return int("".join(map(str, digits)))
 
 @router.post("/answer", response_model=Question)
 async def submit_answer(payload: AnswerPayload):
@@ -368,43 +376,70 @@ async def submit_answer(payload: AnswerPayload):
     if session.end_time:
         raise HTTPException(status_code=400, detail="Session has already ended")
 
-    question_to_answer = None
+    question_to_answer: Optional[Question] = None
     question_index = -1
-    for idx, q in enumerate(session.questions):
-        if q.id == payload.question_id:
-            question_to_answer = q
+    for idx, q_iter in enumerate(session.questions):
+        if q_iter.id == payload.question_id:
+            question_to_answer = q_iter
             question_index = idx
             break
     
     if not question_to_answer:
         raise HTTPException(status_code=404, detail="Question not found in this session")
-    if question_to_answer.user_answer is not None:
-        raise HTTPException(status_code=400, detail="Question already answered")
+    
+    # Check if already answered (user_answer for arithmetic, or is_correct for columnar)
+    # For columnar, if is_correct is set, it means it has been processed.
+    if question_to_answer.question_type == "arithmetic" and question_to_answer.user_answer is not None:
+         raise HTTPException(status_code=400, detail="Arithmetic question already answered")
+    if question_to_answer.question_type == "columnar" and question_to_answer.is_correct is not None:
+         raise HTTPException(status_code=400, detail="Columnar question already processed")
 
-    question_to_answer.user_answer = payload.user_answer
-    # The core validation remains the same as correct_answer should be the integer representation
-    # for both arithmetic and columnar questions. The frontend will handle converting
-    # columnar input into a single integer for user_answer.
-    question_to_answer.is_correct = (payload.user_answer == question_to_answer.correct_answer)
+    if question_to_answer.question_type == "columnar":
+        if not payload.user_filled_operands or not payload.user_filled_result:
+            raise HTTPException(status_code=400, detail="Missing user_filled_operands or user_filled_result for columnar question")
+        if not all(isinstance(op_row, list) for op_row in payload.user_filled_operands) or \
+           not all(isinstance(digit, int) for op_row in payload.user_filled_operands for digit in op_row) or \
+           not all(isinstance(digit, int) for digit in payload.user_filled_result):
+            raise HTTPException(status_code=400, detail="Invalid format for user_filled_operands or user_filled_result")
+
+        # Convert user-filled digits to numbers
+        user_operand_numbers = [_digits_to_int(op_row) for op_row in payload.user_filled_operands]
+        user_result_number = _digits_to_int(payload.user_filled_result)
+
+        question_to_answer.user_answer = user_result_number # Store the integer result for record
+
+        # Perform mathematical validation
+        expected_result_calculated = 0
+        if question_to_answer.columnar_operation == "+" and len(user_operand_numbers) >= 2:
+            expected_result_calculated = sum(user_operand_numbers)
+        elif question_to_answer.columnar_operation == "-" and len(user_operand_numbers) == 2:
+            expected_result_calculated = user_operand_numbers[0] - user_operand_numbers[1]
+        # Add other operations like multiplication/division if supported
+        else:
+            # Fallback or error if operation/operands are not as expected
+            # For now, assume addition if columnar_operation is missing, or error out
+            if question_to_answer.columnar_operation is None and len(user_operand_numbers) >=2:
+                 expected_result_calculated = sum(user_operand_numbers) # Default to sum
+            else:
+                 raise HTTPException(status_code=500, detail="Unsupported columnar operation or operand count for validation")
+
+        question_to_answer.is_correct = (user_result_number == expected_result_calculated)
+    
+    elif question_to_answer.question_type == "arithmetic":
+        if payload.user_answer is None:
+            raise HTTPException(status_code=400, detail="Missing user_answer for arithmetic question")
+        question_to_answer.user_answer = payload.user_answer
+        question_to_answer.is_correct = (payload.user_answer == question_to_answer.correct_answer)
+    else:
+        raise HTTPException(status_code=500, detail=f"Unknown question type: {question_to_answer.question_type}")
+
     question_to_answer.time_spent = payload.time_spent
     question_to_answer.answered_at = datetime.utcnow()
 
     if question_to_answer.is_correct:
         session.score += 1
     
-    # Ensure question_type is on the returned object, it might have been missing on older questions in session
-    if not hasattr(question_to_answer, 'question_type') or not question_to_answer.question_type:
-        # This is a safeguard. All new questions should have it.
-        # If it's missing, we can't definitively know, but assume "arithmetic" for older data.
-        # However, since we are modifying Question model, all new questions will have it.
-        # For the response, it's good practice to ensure it's there.
-        # The actual Question object in the session *should* have it if generated by new code.
-        # This is more about the response model consistency if anything.
-        # Let's assume Question model instances in `session.questions` are correctly typed.
-        pass
-
-
-    answered_all = all(q.user_answer is not None for q in session.questions)
+    answered_all = all(q.user_answer is not None or q.is_correct is not None for q in session.questions)
     if answered_all and len(session.questions) == session.total_questions_planned:
         if not session.end_time:
             session.end_time = datetime.utcnow()
@@ -412,7 +447,7 @@ async def submit_answer(payload: AnswerPayload):
     if question_index == session.current_question_index :
         next_unanswered_idx = -1
         for i in range(len(session.questions)): 
-            if session.questions[i].user_answer is None:
+            if session.questions[i].user_answer is None and session.questions[i].is_correct is None:
                 next_unanswered_idx = i
                 break
         if next_unanswered_idx != -1:
