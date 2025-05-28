@@ -1,15 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import type { PracticeSession, Question, AnswerPayload } from '../services/api';
+import type {
+  PracticeSession,
+  Question,
+  AnswerPayload,
+  HelpResponse,
+} from '../services/api';
 import {
   startPracticeSession,
   getNextQuestion,
   submitAnswer,
   getPracticeSummary,
+  getQuestionHelp,
 } from '../services/api';
 import NumericKeypad from '../components/NumericKeypad';
 import FeedbackDisplay from '../components/FeedbackDisplay';
 import ColumnarCalculation from '../components/ColumnarCalculation'; // Import ColumnarCalculation
+import HelpBox from '../components/HelpBox';
 import '../styles/PracticePage.css';
 
 const PracticePage: React.FC = () => {
@@ -37,6 +44,11 @@ const PracticePage: React.FC = () => {
     correctAnswer?: number;
     show: boolean;
   }>({ isCorrect: null, message: '', correctAnswer: undefined, show: false });
+
+  // Help-related state
+  const [helpData, setHelpData] = useState<HelpResponse | null>(null);
+  const [isHelpVisible, setIsHelpVisible] = useState<boolean>(false);
+  const [isLoadingHelp, setIsLoadingHelp] = useState<boolean>(false);
 
   const [score, setScore] = useState<number>(0);
   const [questionNumber, setQuestionNumber] = useState<number>(0);
@@ -871,6 +883,35 @@ const PracticePage: React.FC = () => {
     }
   };
 
+  // Help functionality
+  const handleRequestHelp = async () => {
+    if (!sessionId || !currentQuestion) return;
+
+    setIsLoadingHelp(true);
+    try {
+      const helpResponse = await getQuestionHelp(sessionId, currentQuestion.id);
+      setHelpData(helpResponse);
+      setIsHelpVisible(true);
+    } catch (err) {
+      console.error('Error fetching help:', err);
+      setFeedback({
+        isCorrect: null,
+        message: '获取帮助失败，请稍后再试',
+        show: true,
+      });
+      setTimeout(() => {
+        setFeedback((prev) => ({ ...prev, show: false }));
+      }, 2000);
+    } finally {
+      setIsLoadingHelp(false);
+    }
+  };
+
+  const handleCloseHelp = () => {
+    setIsHelpVisible(false);
+    setHelpData(null);
+  };
+
   return (
     <div className="practice-container">
       <header className="practice-header">
@@ -920,6 +961,19 @@ const PracticePage: React.FC = () => {
           correctAnswer={feedback.correctAnswer}
           show={feedback.show}
         />
+
+        {/* Help button - only show if not answered yet */}
+        {!isAnswerSubmitted && (
+          <div className="help-button-container">
+            <button
+              onClick={handleRequestHelp}
+              className="help-button"
+              disabled={isLoadingHelp || isLoading}
+            >
+              {isLoadingHelp ? '加载中...' : '🤔 帮我一下'}
+            </button>
+          </div>
+        )}
       </main>
 
       <div className="keypad-container">
@@ -960,6 +1014,13 @@ const PracticePage: React.FC = () => {
           退出练习
         </button>
       </footer>
+
+      {/* Help Box Modal */}
+      <HelpBox
+        helpData={helpData}
+        isVisible={isHelpVisible}
+        onClose={handleCloseHelp}
+      />
     </div>
   );
 };

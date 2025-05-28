@@ -119,6 +119,48 @@
   padding: 10px;
 }
 
+/* Styles for the Help Button Container and Button */
+.help-button-container {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0; /* Add some margin above and below */
+  width: 100%;
+  max-width: 600px; /* Consistent with question area */
+}
+
+.help-button {
+  font-family: var(--font-family-button);
+  font-size: 1.1rem; /* Similar to other control buttons */
+  padding: 12px 25px; /* Similar to other control buttons */
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    transform 0.1s ease;
+  min-width: 150px; /* Make it a bit wider */
+  text-align: center;
+  background-color: var(
+    --primary-orange
+  ); /* Using orange as a distinct color */
+  color: white;
+  display: flex; /* For aligning icon and text if needed in future */
+  align-items: center;
+  justify-content: center;
+}
+
+.help-button:hover:not(:disabled) {
+  background-color: var(--primary-red); /* Darker orange or red on hover */
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.help-button:disabled {
+  background-color: #ccc;
+  color: #888;
+  cursor: not-allowed;
+}
+
 .columnar-submit-container {
   display: flex;
   justify-content: center;

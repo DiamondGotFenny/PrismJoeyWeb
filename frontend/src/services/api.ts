@@ -127,3 +127,34 @@ export const getPracticeSummary = async (
     throw error;
   }
 };
+
+// Help/Hint functionality
+export interface HelpRequest {
+  session_id: string;
+  question_id: string;
+}
+
+export interface HelpResponse {
+  help_content: string;
+  thinking_process: string;
+  solution_steps: string[];
+}
+
+export const getQuestionHelp = async (
+  sessionId: string,
+  questionId: string
+): Promise<HelpResponse> => {
+  try {
+    const response = await axios.post<HelpResponse>(
+      `${API_BASE_URL}/practice/help`,
+      {
+        session_id: sessionId,
+        question_id: questionId,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching question help:', error);
+    throw error;
+  }
+};

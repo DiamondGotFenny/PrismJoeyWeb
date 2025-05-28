@@ -464,3 +464,134 @@ async def get_practice_summary(session_id: UUID):
            session.end_time = datetime.utcnow()
            
     return session
+
+class HelpRequest(BaseModel):
+    session_id: UUID
+    question_id: UUID
+
+class HelpResponse(BaseModel):
+    help_content: str
+    thinking_process: str
+    solution_steps: List[str]
+
+@router.post("/help", response_model=HelpResponse)
+async def get_question_help(request: HelpRequest):
+    """
+    Provide help and thinking process for a specific question.
+    For now, returns a mock response. Later will be connected to LLM.
+    """
+    # Validate session exists
+    if request.session_id not in active_sessions:
+        raise HTTPException(status_code=404, detail="Practice session not found")
+    
+    session = active_sessions[request.session_id]
+    
+    # Find the specific question
+    question = None
+    for q in session.questions:
+        if q.id == request.question_id:
+            question = q
+            break
+    
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    
+    # Generate mock help response based on question type
+    if question.question_type == "columnar":
+        help_content = generate_columnar_help_mock(question)
+        thinking_process = generate_columnar_thinking_mock(question)
+        solution_steps = generate_columnar_steps_mock(question)
+    else:
+        help_content = generate_arithmetic_help_mock(question)
+        thinking_process = generate_arithmetic_thinking_mock(question)
+        solution_steps = generate_arithmetic_steps_mock(question)
+    
+    return HelpResponse(
+        help_content=help_content,
+        thinking_process=thinking_process,
+        solution_steps=solution_steps
+    )
+
+def generate_arithmetic_help_mock(question: Question) -> str:
+    """Generate mock help content for arithmetic questions"""
+    return f"这是一个{question.question_string}的计算题。让我来帮你分析一下解题思路！"
+
+def generate_arithmetic_thinking_mock(question: Question) -> str:
+    """Generate mock thinking process for arithmetic questions"""
+    operations_map = {"+": "加法", "-": "减法", "*": "乘法", "/": "除法"}
+    op_names = [operations_map.get(op, op) for op in question.operations]
+    
+    if len(question.operands) == 2:
+        return f"我需要计算 {question.operands[0]} {op_names[0]} {question.operands[1]}。这是一个基础的{op_names[0]}运算。"
+    else:
+        return f"这是一个多步运算：{question.question_string}。我需要按照运算顺序逐步计算。"
+
+def generate_arithmetic_steps_mock(question: Question) -> List[str]:
+    """Generate mock solution steps for arithmetic questions"""
+    if len(question.operands) == 2:
+        op = question.operations[0]
+        a, b = question.operands[0], question.operands[1]
+        if op == "+":
+            return [
+                f"第一步：识别运算类型 - 这是加法运算",
+                f"第二步：计算 {a} + {b}",
+                f"第三步：答案是 {a + b}"
+            ]
+        elif op == "-":
+            return [
+                f"第一步：识别运算类型 - 这是减法运算",
+                f"第二步：计算 {a} - {b}",
+                f"第三步：答案是 {a - b}"
+            ]
+    
+    # Multi-step calculation
+    steps = ["第一步：按照运算顺序计算"]
+    result = question.operands[0]
+    for i, op in enumerate(question.operations):
+        next_operand = question.operands[i + 1]
+        if op == "+":
+            old_result = result
+            result += next_operand
+            steps.append(f"第{i+2}步：{old_result} + {next_operand} = {result}")
+        elif op == "-":
+            old_result = result
+            result -= next_operand
+            steps.append(f"第{i+2}步：{old_result} - {next_operand} = {result}")
+    
+    steps.append(f"最终答案：{result}")
+    return steps
+
+def generate_columnar_help_mock(question: Question) -> str:
+    """Generate mock help content for columnar questions"""
+    operation = question.columnar_operation or "+"
+    op_name = "加法" if operation == "+" else "减法"
+    return f"这是一个{op_name}竖式计算题。我来教你如何一步步解决！"
+
+def generate_columnar_thinking_mock(question: Question) -> str:
+    """Generate mock thinking process for columnar questions"""
+    operation = question.columnar_operation or "+"
+    if operation == "+":
+        return "竖式加法的关键是从右到左逐位计算，如果某一位的和大于等于10，需要向前进位。"
+    else:
+        return "竖式减法的关键是从右到左逐位计算，如果被减数小于减数，需要向前借位。"
+
+def generate_columnar_steps_mock(question: Question) -> List[str]:
+    """Generate mock solution steps for columnar questions"""
+    operation = question.columnar_operation or "+"
+    
+    if operation == "+":
+        return [
+            "第一步：将数字按位对齐写成竖式",
+            "第二步：从个位开始，逐位相加",
+            "第三步：如果某位的和≥10，写下个位数，向前进位",
+            "第四步：继续计算十位、百位等",
+            "第五步：得出最终答案"
+        ]
+    else:
+        return [
+            "第一步：将数字按位对齐写成竖式",
+            "第二步：从个位开始，逐位相减",
+            "第三步：如果被减数小于减数，需要向前借位",
+            "第四步：继续计算十位、百位等",
+            "第五步：得出最终答案"
+        ]
