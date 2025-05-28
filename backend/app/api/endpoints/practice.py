@@ -323,21 +323,18 @@ async def get_next_question(session_id: UUID):
         if hasattr(generate_question_for_session, "recursion_depth"):
             delattr(generate_question_for_session, "recursion_depth")
         
-        # Decide question type: 50% chance for columnar if applicable
-        # For now, let's assume columnar is always addition and check if "+" is in allowed operations.
-        # A more robust check might involve specific flags in difficulty level for columnar support.
         difficulty_detail = session.difficulty_level_details
         can_be_columnar = False
-        if difficulty_detail and "+" in [_get_operation_symbol(op) for op in difficulty_detail.operation_types]:
-            # Further check if difficulty is suitable for columnar (e.g. not too simple, or has a flag)
-            # For MVP, let's assume any level allowing addition could be columnar.
-            # We might want to restrict this, e.g. based on max_number or a specific flag.
-            # For example, columnar might not make sense for "within_10" single digit additions.
-            # Let's add a simple check: max_number > 9 (i.e. at least two digits involved potentially)
-            if difficulty_detail.max_number > 9:
-                 can_be_columnar = True
+        if difficulty_detail:
+            allowed_symbols_for_difficulty = [_get_operation_symbol(op) for op in difficulty_detail.operation_types]
+            # Columnar questions can be generated if either '+' or '-' is allowed by the difficulty level.
+            # Add other symbols here if more columnar types are supported in the future (e.g., '*')
+            if "+" in allowed_symbols_for_difficulty or "-" in allowed_symbols_for_difficulty:
+                # Additional suitability checks (e.g., max_number)
+                if difficulty_detail.max_number > 9: # Ensure numbers are large enough for meaningful columnar display
+                    can_be_columnar = True
 
-        if can_be_columnar and random.random() < 0.5:
+        if can_be_columnar and random.random() < 0.5: # 50% chance to generate columnar if eligible
             new_question = generate_columnar_question(difficulty_detail, session.id)
         else:
             new_question = generate_question_for_session(session) # Existing arithmetic question
