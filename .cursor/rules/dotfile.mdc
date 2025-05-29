@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+**DO NOT READ .env FILES**
+**DO NOT WRITE .env FILES**
+
+.env or any .env* Files must not be accessed under any circumstances. To enhance security and prevent accidental exposure of sensitive credentials to AI systems, we should block access to environment files containing credentials.

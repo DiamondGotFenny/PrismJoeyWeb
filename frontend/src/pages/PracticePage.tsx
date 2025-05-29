@@ -49,6 +49,12 @@ const PracticePage: React.FC = () => {
   const [helpData, setHelpData] = useState<HelpResponse | null>(null);
   const [isHelpVisible, setIsHelpVisible] = useState<boolean>(false);
   const [isLoadingHelp, setIsLoadingHelp] = useState<boolean>(false);
+  const [helpError, setHelpError] = useState<{
+    type: 'network' | 'server' | 'llm' | 'unknown';
+    message: string;
+    canRetry: boolean;
+  } | null>(null);
+  const [helpRetryCount, setHelpRetryCount] = useState<number>(0);
 
   const [score, setScore] = useState<number>(0);
   const [questionNumber, setQuestionNumber] = useState<number>(0);
@@ -883,33 +889,200 @@ const PracticePage: React.FC = () => {
     }
   };
 
-  // Help functionality
-  const handleRequestHelp = async () => {
+  // Enhanced Help functionality with comprehensive error handling
+  const handleRequestHelp = async (isRetry: boolean = false) => {
     if (!sessionId || !currentQuestion) return;
 
+    // Clear previous error state when starting new request
+    if (!isRetry) {
+      setHelpError(null);
+      setHelpRetryCount(0);
+    }
+
+    // Always show the help box when starting a request
+    setIsHelpVisible(true);
     setIsLoadingHelp(true);
+
     try {
       const helpResponse = await getQuestionHelp(sessionId, currentQuestion.id);
+
+      // Validate response structure
+      if (
+        !helpResponse.help_content ||
+        !helpResponse.thinking_process ||
+        !helpResponse.solution_steps
+      ) {
+        throw new Error('Invalid help response structure');
+      }
+
       setHelpData(helpResponse);
-      setIsHelpVisible(true);
-    } catch (err) {
+      setHelpError(null); // Clear any previous errors
+      setHelpRetryCount(0);
+    } catch (err: unknown) {
       console.error('Error fetching help:', err);
-      setFeedback({
-        isCorrect: null,
-        message: '获取帮助失败，请稍后再试',
-        show: true,
-      });
+
+      const errorInfo = determineHelpErrorType(err);
+      setHelpError(errorInfo);
+
+      // Increment retry count
+      setHelpRetryCount((prev) => prev + 1);
+
+      // Show user-friendly feedback based on error type
+      if (errorInfo.type === 'network') {
+        setFeedback({
+          isCorrect: null,
+          message: '网络连接问题，请检查网络后重试',
+          show: true,
+        });
+      } else if (errorInfo.type === 'server') {
+        setFeedback({
+          isCorrect: null,
+          message: '服务器暂时繁忙，请稍后重试',
+          show: true,
+        });
+      } else if (errorInfo.type === 'llm') {
+        setFeedback({
+          isCorrect: null,
+          message: 'AI助手暂时不可用，将为您提供基础帮助',
+          show: true,
+        });
+      } else {
+        setFeedback({
+          isCorrect: null,
+          message: '获取帮助失败，请稍后再试',
+          show: true,
+        });
+      }
+
+      // Auto-clear feedback after delay
       setTimeout(() => {
         setFeedback((prev) => ({ ...prev, show: false }));
-      }, 2000);
+      }, 3000);
+
+      // Auto-retry for certain types of errors (max 2 retries)
+      if (
+        errorInfo.canRetry &&
+        helpRetryCount < 2 &&
+        (errorInfo.type === 'network' || errorInfo.type === 'server')
+      ) {
+        setTimeout(
+          () => {
+            handleRequestHelp(true);
+          },
+          2000 + helpRetryCount * 1000
+        ); // Exponential backoff
+      }
     } finally {
       setIsLoadingHelp(false);
     }
   };
 
+  // Helper function to determine error type and retry eligibility
+  const determineHelpErrorType = (
+    error: unknown
+  ): {
+    type: 'network' | 'server' | 'llm' | 'unknown';
+    message: string;
+    canRetry: boolean;
+  } => {
+    // Type guard for axios errors
+    const isAxiosError = (
+      err: unknown
+    ): err is {
+      response?: {
+        status: number;
+        data?: { detail?: string; message?: string };
+      };
+      code?: string;
+      message?: string;
+    } => {
+      return (
+        typeof err === 'object' &&
+        err !== null &&
+        ('response' in err || 'code' in err || 'message' in err)
+      );
+    };
+
+    if (!isAxiosError(error)) {
+      return {
+        type: 'unknown',
+        message: '未知错误',
+        canRetry: true,
+      };
+    }
+
+    // Network errors (no response received)
+    if (
+      !error.response &&
+      (error.code === 'NETWORK_ERROR' ||
+        error.message?.includes('Network Error'))
+    ) {
+      return {
+        type: 'network',
+        message: '网络连接失败',
+        canRetry: true,
+      };
+    }
+
+    // Server errors (5xx status codes)
+    if (error.response?.status && error.response.status >= 500) {
+      return {
+        type: 'server',
+        message: '服务器内部错误',
+        canRetry: true,
+      };
+    }
+
+    // LLM-specific errors (backend falls back to mock but still returns error)
+    if (
+      error.response?.status === 503 ||
+      error.response?.data?.detail?.includes('LLM') ||
+      error.response?.data?.detail?.includes('AI') ||
+      error.response?.data?.message?.includes('fallback')
+    ) {
+      return {
+        type: 'llm',
+        message: 'AI服务暂时不可用',
+        canRetry: false, // Don't auto-retry LLM failures, user can manually retry
+      };
+    }
+
+    // Client errors (4xx status codes) - usually not worth retrying
+    if (
+      error.response?.status &&
+      error.response.status >= 400 &&
+      error.response.status < 500
+    ) {
+      return {
+        type: 'server',
+        message: '请求失败',
+        canRetry: false,
+      };
+    }
+
+    // Unknown errors
+    return {
+      type: 'unknown',
+      message: '未知错误',
+      canRetry: true,
+    };
+  };
+
+  // Manual retry function for help requests
+  const handleRetryHelp = () => {
+    handleRequestHelp(true);
+  };
+
+  // Click handler for help button
+  const handleHelpButtonClick = () => {
+    handleRequestHelp(false);
+  };
+
   const handleCloseHelp = () => {
     setIsHelpVisible(false);
     setHelpData(null);
+    setHelpError(null);
+    setHelpRetryCount(0);
   };
 
   return (
@@ -966,7 +1139,7 @@ const PracticePage: React.FC = () => {
         {!isAnswerSubmitted && (
           <div className="help-button-container">
             <button
-              onClick={handleRequestHelp}
+              onClick={handleHelpButtonClick}
               className="help-button"
               disabled={isLoadingHelp || isLoading}
             >
@@ -1020,6 +1193,9 @@ const PracticePage: React.FC = () => {
         helpData={helpData}
         isVisible={isHelpVisible}
         onClose={handleCloseHelp}
+        error={helpError}
+        onRetry={handleRetryHelp}
+        isLoading={isLoadingHelp}
       />
     </div>
   );

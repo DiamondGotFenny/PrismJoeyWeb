@@ -24,70 +24,60 @@
 }
 
 .help-box {
-  background-color: var(--surface);
-  border-radius: 16px;
+  background: white;
+  border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   max-width: 600px;
   width: 100%;
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  animation: slideUp 0.3s ease-out;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: slideIn 0.3s ease-out;
 }
 
-@keyframes slideUp {
+@keyframes slideIn {
   from {
-    transform: translateY(30px) scale(0.95);
     opacity: 0;
+    transform: translateY(-20px) scale(0.95);
   }
   to {
-    transform: translateY(0) scale(1);
     opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
 .help-box-header {
+  padding: 20px 20px 10px 20px;
+  border-bottom: 1px solid #eee;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--primary-blue);
-  color: white;
 }
 
 .help-box-header h3 {
   margin: 0;
+  color: #333;
   font-size: 1.4rem;
-  font-weight: 600;
-  font-family: var(--font-family-title);
 }
 
 .help-close-button {
   background: none;
   border: none;
-  color: white;
   font-size: 1.5rem;
   cursor: pointer;
   padding: 8px;
-  border-radius: 50%;
+  border-radius: 4px;
+  color: #666;
   transition: background-color 0.2s ease;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .help-close-button:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: #f5f5f5;
+  color: #333;
 }
 
 .help-box-content {
-  padding: 24px;
-  overflow-y: auto;
-  flex: 1;
+  padding: 20px;
+  min-height: 200px;
 }
 
 .help-section {
@@ -100,166 +90,205 @@
 
 .help-section h4 {
   margin: 0 0 12px 0;
+  color: #444;
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--text-primary);
-  font-family: var(--font-family-title);
 }
 
 .help-content,
 .thinking-process {
   margin: 0;
-  font-size: 1rem;
   line-height: 1.6;
-  color: var(--text-secondary);
-  background-color: var(--background);
-  padding: 16px;
-  border-radius: 8px;
-  border-left: 4px solid var(--primary-blue);
+  color: #555;
+  font-size: 1rem;
 }
 
 .solution-steps {
   margin: 0;
   padding-left: 20px;
-  list-style: none;
-  counter-reset: step-counter;
 }
 
 .solution-step {
-  margin-bottom: 12px;
-  font-size: 1rem;
+  margin-bottom: 8px;
   line-height: 1.6;
-  color: var(--text-secondary);
-  padding: 12px 16px;
-  background-color: var(--background);
-  border-radius: 8px;
-  position: relative;
-  counter-increment: step-counter;
-  border-left: 4px solid var(--primary-green);
-}
-
-.solution-step::before {
-  content: counter(step-counter);
-  position: absolute;
-  left: -12px;
-  top: 50%;
-  transform: translateY(-50%);
-  background-color: var(--primary-green);
-  color: white;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.solution-step:last-child {
-  margin-bottom: 0;
+  color: #555;
 }
 
 .help-box-footer {
-  padding: 20px 24px;
-  border-top: 1px solid var(--border-color);
-  background-color: var(--background);
-  display: flex;
-  justify-content: center;
+  padding: 10px 20px 20px 20px;
+  text-align: center;
 }
 
 .help-got-it-button {
-  background-color: var(--primary-green);
+  background-color: #4caf50;
   color: white;
   border: none;
   padding: 12px 32px;
   border-radius: 8px;
   font-size: 1rem;
-  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-family: var(--font-family-button);
+  transition: background-color 0.2s ease;
   min-width: 120px;
 }
 
 .help-got-it-button:hover {
-  background-color: #388e3c;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  background-color: #45a049;
 }
 
-/* Mobile responsive design */
+/* Loading States */
+.help-loading {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #4caf50;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.help-loading p {
+  margin: 0;
+  color: #666;
+  font-size: 1rem;
+}
+
+/* Error States */
+.help-error {
+  text-align: center;
+  padding: 20px;
+}
+
+.error-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.help-error h4 {
+  color: #d32f2f;
+  margin-bottom: 12px;
+  font-size: 1.2rem;
+}
+
+.error-message {
+  color: #666;
+  margin-bottom: 20px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.error-details {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.error-details p {
+  margin: 0 0 8px 0;
+  font-weight: 600;
+  color: #333;
+}
+
+.error-details ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.error-details li {
+  margin-bottom: 4px;
+  color: #555;
+  line-height: 1.5;
+}
+
+.help-retry-button {
+  background-color: #2196f3;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-top: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.help-retry-button:hover {
+  background-color: #1976d2;
+}
+
+.help-retry-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* Empty State */
+.help-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+}
+
+.help-empty p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
   .help-box-overlay {
     padding: 10px;
   }
 
   .help-box {
-    max-height: 95vh;
+    max-height: 90vh;
   }
 
-  .help-box-header {
-    padding: 16px 20px;
+  .help-box-header,
+  .help-box-content,
+  .help-box-footer {
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
   .help-box-header h3 {
     font-size: 1.2rem;
   }
 
-  .help-box-content {
-    padding: 20px;
-  }
-
-  .help-section {
-    margin-bottom: 20px;
-  }
-
   .help-section h4 {
     font-size: 1rem;
   }
-
-  .help-content,
-  .thinking-process {
-    font-size: 0.9rem;
-    padding: 12px;
-  }
-
-  .solution-step {
-    font-size: 0.9rem;
-    padding: 10px 12px;
-  }
-
-  .help-box-footer {
-    padding: 16px 20px;
-  }
 }
 
-@media (max-width: 480px) {
-  .help-box-overlay {
-    padding: 5px;
-  }
+/* Animation for error display */
+.help-error {
+  animation: fadeInError 0.3s ease-out;
+}
 
-  .help-box-header {
-    padding: 12px 16px;
+@keyframes fadeInError {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-
-  .help-box-content {
-    padding: 16px;
-  }
-
-  .help-content,
-  .thinking-process {
-    font-size: 0.85rem;
-    padding: 10px;
-  }
-
-  .solution-step {
-    font-size: 0.85rem;
-    padding: 8px 10px;
-  }
-
-  .help-got-it-button {
-    padding: 10px 24px;
-    font-size: 0.9rem;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
