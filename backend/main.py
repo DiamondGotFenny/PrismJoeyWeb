@@ -1,8 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 from app.api.endpoints import difficulty as difficulty_router
 from app.api.endpoints import practice as practice_router
 
+# Load environment variables from .env file
+load_dotenv()
 
 app = FastAPI(title="PrismJoey Backend")
 

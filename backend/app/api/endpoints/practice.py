@@ -6,6 +6,7 @@ from app.models.practice import PracticeSession, Question
 from app.models.difficulty import DifficultyLevel
 from app.api.endpoints.difficulty import difficulty_levels_objects # To get difficulty details
 from app.services.columnar_practice_service import generate_columnar_question
+from app.services.llm_service import llm_service
 import random
 from pydantic import BaseModel
 
@@ -477,8 +478,7 @@ class HelpResponse(BaseModel):
 @router.post("/help", response_model=HelpResponse)
 async def get_question_help(request: HelpRequest):
     """
-    Provide help and thinking process for a specific question.
-    For now, returns a mock response. Later will be connected to LLM.
+    Provide help and thinking process for a specific question using LLM.
     """
     # Validate session exists
     if request.session_id not in active_sessions:
@@ -496,21 +496,30 @@ async def get_question_help(request: HelpRequest):
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
     
-    # Generate mock help response based on question type
-    if question.question_type == "columnar":
-        help_content = generate_columnar_help_mock(question)
-        thinking_process = generate_columnar_thinking_mock(question)
-        solution_steps = generate_columnar_steps_mock(question)
-    else:
-        help_content = generate_arithmetic_help_mock(question)
-        thinking_process = generate_arithmetic_thinking_mock(question)
-        solution_steps = generate_arithmetic_steps_mock(question)
-    
-    return HelpResponse(
-        help_content=help_content,
-        thinking_process=thinking_process,
-        solution_steps=solution_steps
-    )
+    # Generate LLM-powered help response
+    try:
+        help_response = llm_service.generate_help_response(question)
+        return HelpResponse(
+            help_content=help_response["help_content"],
+            thinking_process=help_response["thinking_process"],
+            solution_steps=help_response["solution_steps"]
+        )
+    except Exception as e:
+        # If LLM fails, fall back to basic mock responses
+        if question.question_type == "columnar":
+            help_content = generate_columnar_help_mock(question)
+            thinking_process = generate_columnar_thinking_mock(question)
+            solution_steps = generate_columnar_steps_mock(question)
+        else:
+            help_content = generate_arithmetic_help_mock(question)
+            thinking_process = generate_arithmetic_thinking_mock(question)
+            solution_steps = generate_arithmetic_steps_mock(question)
+        
+        return HelpResponse(
+            help_content=help_content,
+            thinking_process=thinking_process,
+            solution_steps=solution_steps
+        )
 
 def generate_arithmetic_help_mock(question: Question) -> str:
     """Generate mock help content for arithmetic questions"""
