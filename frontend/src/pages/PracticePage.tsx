@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type {
   PracticeSession,
@@ -55,6 +55,9 @@ const PracticePage: React.FC = () => {
     canRetry: boolean;
   } | null>(null);
   const [helpRetryCount, setHelpRetryCount] = useState<number>(0);
+
+  // Ref to track auto-retry timeout
+  const helpRetryTimeoutRef = useRef<number | null>(null);
 
   const [score, setScore] = useState<number>(0);
   const [questionNumber, setQuestionNumber] = useState<number>(0);
@@ -259,6 +262,15 @@ const PracticePage: React.FC = () => {
   useEffect(() => {
     handleStartSession();
   }, [handleStartSession]);
+
+  // Cleanup effect to clear timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (helpRetryTimeoutRef.current) {
+        clearTimeout(helpRetryTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Auto-focus first available input for columnar questions
   useEffect(() => {
@@ -893,6 +905,12 @@ const PracticePage: React.FC = () => {
   const handleRequestHelp = async (isRetry: boolean = false) => {
     if (!sessionId || !currentQuestion) return;
 
+    // Clear any existing retry timeout to prevent conflicts
+    if (helpRetryTimeoutRef.current) {
+      clearTimeout(helpRetryTimeoutRef.current);
+      helpRetryTimeoutRef.current = null;
+    }
+
     // Clear previous error state when starting new request
     if (!isRetry) {
       setHelpError(null);
@@ -960,14 +978,21 @@ const PracticePage: React.FC = () => {
       }, 3000);
 
       // Auto-retry for certain types of errors (max 2 retries)
+      // Only retry if help window is still visible and conditions are met
       if (
         errorInfo.canRetry &&
         helpRetryCount < 2 &&
         (errorInfo.type === 'network' || errorInfo.type === 'server')
       ) {
-        setTimeout(
+        helpRetryTimeoutRef.current = setTimeout(
           () => {
-            handleRequestHelp(true);
+            // Double-check that help window is still visible before retrying
+            setIsHelpVisible((currentVisible) => {
+              if (currentVisible) {
+                handleRequestHelp(true);
+              }
+              return currentVisible;
+            });
           },
           2000 + helpRetryCount * 1000
         ); // Exponential backoff
@@ -1079,6 +1104,12 @@ const PracticePage: React.FC = () => {
   };
 
   const handleCloseHelp = () => {
+    // Clear any pending retry timeout when help window is closed
+    if (helpRetryTimeoutRef.current) {
+      clearTimeout(helpRetryTimeoutRef.current);
+      helpRetryTimeoutRef.current = null;
+    }
+
     setIsHelpVisible(false);
     setHelpData(null);
     setHelpError(null);

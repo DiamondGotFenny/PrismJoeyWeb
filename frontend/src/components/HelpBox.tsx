@@ -99,13 +99,13 @@ const HelpBox: React.FC<HelpBoxProps> = ({
 
               <div className="help-section">
                 <h4>📝 解题步骤</h4>
-                <ol className="solution-steps">
+                <ul className="solution-steps">
                   {helpData.solution_steps.map((step, index) => (
                     <li key={index} className="solution-step">
                       {step}
                     </li>
                   ))}
-                </ol>
+                </ul>
               </div>
             </>
           ) : (
