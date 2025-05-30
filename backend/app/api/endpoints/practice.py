@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Body, Response
+from fastapi.responses import StreamingResponse
 from typing import List, Dict, Tuple, Optional
 from uuid import UUID, uuid4
 from datetime import datetime
@@ -563,6 +564,110 @@ async def get_question_voice_help(request: HelpRequest):
     except Exception as e:
         logger.error(f"Error generating voice help: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate voice help")
+
+@router.post("/voice-help-stream")
+async def get_question_voice_help_stream(request: HelpRequest):
+    """
+    Provide streaming voice help for a specific question using Azure TTS.
+    Returns streaming audio data as MP3 for reduced latency.
+    """
+    # Validate session exists
+    if request.session_id not in active_sessions:
+        raise HTTPException(status_code=404, detail="Practice session not found")
+    
+    session = active_sessions[request.session_id]
+    
+    # Find the specific question
+    question = None
+    for q in session.questions:
+        if q.id == request.question_id:
+            question = q
+            break
+    
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    
+    try:
+        # Generate streaming voice help using TTS service
+        def generate_audio_stream():
+            try:
+                for audio_chunk in tts_service.generate_voice_help_stream(question):
+                    yield audio_chunk
+            except Exception as e:
+                logger.error(f"Error in audio stream generation: {e}")
+                # Optionally yield an error sound or just stop the stream
+                return
+        
+        # Return streaming audio as MP3
+        return StreamingResponse(
+            generate_audio_stream(),
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": "inline; filename=voice_help_stream.mp3",
+                "Cache-Control": "no-cache",
+                "Accept-Ranges": "bytes",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Expose-Headers": "Content-Length, Content-Range"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error generating streaming voice help: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate streaming voice help")
+
+@router.post("/voice-help-stream-ultra")
+async def get_question_voice_help_stream_ultra(request: HelpRequest):
+    """
+    Provide ultra-fast streaming voice help with immediate audio feedback.
+    Uses optimized approach with quick intro + full content streaming.
+    """
+    # Validate session exists
+    if request.session_id not in active_sessions:
+        raise HTTPException(status_code=404, detail="Practice session not found")
+    
+    session = active_sessions[request.session_id]
+    
+    # Find the specific question
+    question = None
+    for q in session.questions:
+        if q.id == request.question_id:
+            question = q
+            break
+    
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    
+    try:
+        # Generate optimized streaming voice help using TTS service
+        def generate_ultra_audio_stream():
+            try:
+                for audio_chunk in tts_service.generate_voice_help_stream_optimized(question):
+                    yield audio_chunk
+            except Exception as e:
+                logger.error(f"Error in ultra audio stream generation: {e}")
+                # Fallback to regular streaming if optimized fails
+                try:
+                    for audio_chunk in tts_service.generate_voice_help_stream(question):
+                        yield audio_chunk
+                except Exception as fallback_error:
+                    logger.error(f"Fallback stream also failed: {fallback_error}")
+                    return
+        
+        # Return streaming audio as MP3
+        return StreamingResponse(
+            generate_ultra_audio_stream(),
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": "inline; filename=voice_help_ultra_stream.mp3",
+                "Cache-Control": "no-cache",
+                "Accept-Ranges": "bytes",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Expose-Headers": "Content-Length, Content-Range",
+                "X-Stream-Type": "ultra-optimized"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error generating ultra streaming voice help: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate ultra streaming voice help")
 
 def generate_arithmetic_help_mock(question: Question) -> str:
     """Generate mock help content for arithmetic questions"""

@@ -13,6 +13,8 @@ import {
   getPracticeSummary,
   getQuestionHelp,
   getQuestionVoiceHelp,
+  playStreamingAudio,
+  playUltraStreamingAudio,
 } from '../services/api';
 import NumericKeypad from '../components/NumericKeypad';
 import FeedbackDisplay from '../components/FeedbackDisplay';
@@ -1116,9 +1118,71 @@ const PracticePage: React.FC = () => {
     setVoiceHelpError(null);
 
     try {
-      const audioBlob = await getQuestionVoiceHelp(
+      // Try ultra-optimized streaming first for immediate audio feedback
+      await playUltraStreamingAudio(
         sessionId,
-        currentQuestion.id
+        currentQuestion.id,
+        (loaded) => {
+          // Optional: show progress indicator
+          console.log(`Ultra streaming progress: ${loaded} bytes loaded`);
+        },
+        () => {
+          // Audio completed
+          setIsLoadingVoiceHelp(false);
+        },
+        (error) => {
+          // Ultra streaming failed, fallback to regular streaming
+          console.warn(
+            'Ultra streaming failed, falling back to regular streaming:',
+            error
+          );
+          handleRegularStreamingFallback();
+        }
+      );
+    } catch (error) {
+      console.warn(
+        'Ultra streaming setup failed, falling back to regular streaming:',
+        error
+      );
+      handleRegularStreamingFallback();
+    }
+  };
+
+  // Fallback to regular streaming
+  const handleRegularStreamingFallback = async () => {
+    try {
+      await playStreamingAudio(
+        sessionId!,
+        currentQuestion!.id,
+        (loaded) => {
+          console.log(`Regular streaming progress: ${loaded} bytes loaded`);
+        },
+        () => {
+          setIsLoadingVoiceHelp(false);
+        },
+        (error) => {
+          console.warn(
+            'Regular streaming failed, falling back to non-streaming:',
+            error
+          );
+          handleVoiceHelpFallback();
+        }
+      );
+    } catch (error) {
+      console.warn(
+        'Regular streaming setup failed, falling back to non-streaming:',
+        error
+      );
+      handleVoiceHelpFallback();
+    }
+  };
+
+  // Fallback function for non-streaming voice help
+  const handleVoiceHelpFallback = async () => {
+    try {
+      const audioBlob = await getQuestionVoiceHelp(
+        sessionId!,
+        currentQuestion!.id
       );
 
       // Create audio URL and play it
@@ -1127,18 +1191,19 @@ const PracticePage: React.FC = () => {
 
       audio.onended = () => {
         URL.revokeObjectURL(audioUrl);
+        setIsLoadingVoiceHelp(false);
       };
 
       audio.onerror = () => {
         setVoiceHelpError('音频播放失败');
         URL.revokeObjectURL(audioUrl);
+        setIsLoadingVoiceHelp(false);
       };
 
       await audio.play();
     } catch (error) {
       console.error('Error playing voice help:', error);
       setVoiceHelpError('获取语音提示失败，请稍后重试');
-    } finally {
       setIsLoadingVoiceHelp(false);
     }
   };

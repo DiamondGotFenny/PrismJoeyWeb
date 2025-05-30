@@ -1,7 +1,7 @@
 import os
 import io
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, AsyncGenerator, Generator
 import azure.cognitiveservices.speech as speechsdk
 from app.models.practice import Question
 from app.services.llm_service import LLMService
@@ -56,6 +56,60 @@ class TTSService:
             
         except Exception as e:
             logger.error(f"Error generating voice help: {e}")
+            raise e
+
+    def generate_voice_help_stream(self, question: Question) -> Generator[bytes, None, None]:
+        """
+        Generate voice help for a given question as an audio stream
+        
+        Args:
+            question: The Question object to generate voice help for
+            
+        Yields:
+            Audio bytes chunks in MP3 format as they are generated
+        """
+        try:
+            # Generate TTS-optimized help content using LLM
+            help_text = self._generate_oral_help_content(question)
+            
+            # Convert text to speech with streaming
+            yield from self._text_to_speech_stream(help_text)
+            
+        except Exception as e:
+            logger.error(f"Error generating voice help stream: {e}")
+            raise e
+
+    def generate_voice_help_stream_optimized(self, question: Question) -> Generator[bytes, None, None]:
+        """
+        Generate voice help with maximum optimization - starts TTS as soon as initial content is ready
+        
+        Args:
+            question: The Question object to generate voice help for
+            
+        Yields:
+            Audio bytes chunks in MP3 format as they are generated
+        """
+        try:
+            # Generate immediate short intro while preparing full content
+            quick_intro = self._generate_quick_intro(question)
+            
+            # Stream the quick intro first for immediate audio feedback
+            logger.debug("Streaming quick intro for immediate feedback...")
+            yield from self._text_to_speech_stream(quick_intro)
+            
+            # Generate full help content in parallel/after intro
+            try:
+                full_help_text = self._generate_oral_help_content(question)
+                # Stream the full help content
+                logger.debug("Streaming full help content...")
+                yield from self._text_to_speech_stream(full_help_text)
+            except Exception as e:
+                logger.warning(f"Full content generation failed, using fallback: {e}")
+                fallback_text = self._generate_fallback_oral_help(question)
+                yield from self._text_to_speech_stream(fallback_text)
+                
+        except Exception as e:
+            logger.error(f"Error generating optimized voice help stream: {e}")
             raise e
 
     def _generate_oral_help_content(self, question: Question) -> str:
@@ -288,6 +342,90 @@ class TTSService:
         except Exception as e:
             logger.error(f"Error in text-to-speech conversion: {e}")
             raise e
+
+    def _text_to_speech_stream(self, text: str) -> Generator[bytes, None, None]:
+        """Convert text to speech using Azure TTS with AudioDataStream for optimal streaming"""
+        
+        try:
+            # Create a synthesizer with no audio output config (we'll handle the data manually)
+            synthesizer = speechsdk.SpeechSynthesizer(speech_config=self.speech_config, audio_config=None)
+            
+            # Start speaking asynchronously - this is key for streaming
+            logger.debug("Starting async speech synthesis for streaming...")
+            result = synthesizer.start_speaking_text_async(text).get()
+            
+            if result.reason == speechsdk.ResultReason.Canceled:
+                cancellation_details = result.cancellation_details
+                logger.error(f"Speech synthesis was canceled: {cancellation_details.reason}")
+                if cancellation_details.reason == speechsdk.CancellationReason.Error:
+                    error_details = cancellation_details.error_details
+                    logger.error(f"Error details: {error_details}")
+                    raise Exception(f"TTS Error: {error_details}")
+                else:
+                    raise Exception("Speech synthesis was canceled")
+            
+            # Create AudioDataStream for efficient chunk reading
+            audio_data_stream = speechsdk.AudioDataStream(result)
+            
+            # Buffer size - 16KB chunks work well for streaming
+            buffer_size = 16000
+            audio_buffer = bytes(buffer_size)
+            
+            logger.debug("Starting to read audio chunks from stream...")
+            chunk_count = 0
+            total_bytes = 0
+            
+            # Read chunks until stream is exhausted
+            while True:
+                filled_size = audio_data_stream.read_data(audio_buffer)
+                
+                if filled_size == 0:
+                    # No more data available
+                    logger.debug(f"Stream ended. Total chunks: {chunk_count}, Total bytes: {total_bytes}")
+                    break
+                
+                # Yield the actual data (not the full buffer)
+                chunk = audio_buffer[:filled_size]
+                chunk_count += 1
+                total_bytes += filled_size
+                
+                logger.debug(f"Yielding chunk {chunk_count}: {filled_size} bytes")
+                yield chunk
+            
+            logger.debug("Audio streaming completed successfully")
+                
+        except Exception as e:
+            logger.error(f"Error in streaming text-to-speech conversion: {e}")
+            raise e
+
+    def _generate_quick_intro(self, question: Question) -> str:
+        """Generate a quick introduction that can be spoken immediately while preparing full content"""
+        
+        if question.question_type == "columnar":
+            operation_map = {
+                '+': '加法',
+                '-': '减法', 
+                '*': '乘法',
+                '×': '乘法'
+            }
+            op_name = operation_map.get(question.columnar_operation, '竖式计算')
+            return f"小朋友，我来帮你解决这道{op_name}竖式计算题。让我们一步步来看。"
+        else:
+            # For arithmetic questions
+            operation_map = {
+                '+': '加法',
+                '-': '减法', 
+                '*': '乘法',
+                '×': '乘法',
+                '/': '除法',
+                '÷': '除法'
+            }
+            
+            if question.operations:
+                op_name = operation_map.get(question.operations[0], '计算')
+                return f"小朋友，这是一道{op_name}题。题目是{question.question_string}。我来教你怎么算。"
+            else:
+                return f"小朋友，我来帮你解决这道计算题。让我们仔细看看。"
 
 # Create a singleton instance
 tts_service = TTSService() 

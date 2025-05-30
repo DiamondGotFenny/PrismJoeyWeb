@@ -183,3 +183,291 @@ export const getQuestionVoiceHelp = async (
     throw error;
   }
 };
+
+export const getQuestionVoiceHelpStream = async (
+  sessionId: string,
+  questionId: string
+): Promise<ReadableStream<Uint8Array> | null> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/practice/voice-help-stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'audio/mpeg',
+      },
+      body: JSON.stringify({
+        session_id: sessionId,
+        question_id: questionId,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    if (!response.body) {
+      throw new Error('No response body available for streaming');
+    }
+
+    return response.body;
+  } catch (error) {
+    console.error('Error fetching streaming voice help:', error);
+    throw error;
+  }
+};
+
+// Utility function to convert ReadableStream to playable audio
+export const streamToAudio = async (
+  stream: ReadableStream<Uint8Array>,
+  onChunk?: (chunk: Uint8Array) => void,
+  onComplete?: () => void,
+  onError?: (error: Error) => void
+): Promise<void> => {
+  try {
+    const reader = stream.getReader();
+    const chunks: Uint8Array[] = [];
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        // Create a blob from all chunks and play it
+        const audioBlob = new Blob(chunks as BlobPart[], {
+          type: 'audio/mpeg',
+        });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          onComplete?.();
+        };
+
+        audio.onerror = () => {
+          URL.revokeObjectURL(audioUrl);
+          onError?.(new Error('Audio playback error'));
+        };
+
+        await audio.play();
+        break;
+      }
+
+      if (value) {
+        chunks.push(value);
+        onChunk?.(value);
+      }
+    }
+  } catch (error) {
+    console.error('Error processing audio stream:', error);
+    onError?.(error as Error);
+  }
+};
+
+// Alternative streaming approach for better real-time playback
+export const playStreamingAudio = async (
+  sessionId: string,
+  questionId: string,
+  onProgress?: (loaded: number) => void,
+  onComplete?: () => void,
+  onError?: (error: Error) => void
+): Promise<void> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/practice/voice-help-stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'audio/mpeg',
+      },
+      body: JSON.stringify({
+        session_id: sessionId,
+        question_id: questionId,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    if (!response.body) {
+      throw new Error('No response body available for streaming');
+    }
+
+    // Create a MediaSource for progressive playback
+    if ('MediaSource' in window) {
+      const mediaSource = new MediaSource();
+      const audio = new Audio();
+      audio.src = URL.createObjectURL(mediaSource);
+
+      mediaSource.addEventListener('sourceopen', async () => {
+        try {
+          const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
+          const reader = response.body!.getReader();
+          let totalLoaded = 0;
+
+          const pump = async (): Promise<void> => {
+            const { done, value } = await reader.read();
+
+            if (done) {
+              if (mediaSource.readyState === 'open') {
+                mediaSource.endOfStream();
+              }
+              onComplete?.();
+              return;
+            }
+
+            if (value) {
+              totalLoaded += value.length;
+              onProgress?.(totalLoaded);
+
+              // Wait for the source buffer to be ready
+              await new Promise<void>((resolve) => {
+                if (!sourceBuffer.updating) {
+                  resolve();
+                } else {
+                  sourceBuffer.addEventListener('updateend', () => resolve(), {
+                    once: true,
+                  });
+                }
+              });
+
+              sourceBuffer.appendBuffer(value);
+              await pump();
+            }
+          };
+
+          // Start playback as soon as we have some data
+          audio.addEventListener(
+            'canplay',
+            () => {
+              audio.play().catch(onError);
+            },
+            { once: true }
+          );
+
+          audio.onerror = () => onError?.(new Error('Audio playback error'));
+
+          await pump();
+        } catch (error) {
+          onError?.(error as Error);
+        }
+      });
+    } else {
+      // Fallback: collect all chunks then play
+      await streamToAudio(
+        response.body,
+        onProgress ? (chunk) => onProgress(chunk.length) : undefined,
+        onComplete,
+        onError
+      );
+    }
+  } catch (error) {
+    console.error('Error playing streaming audio:', error);
+    onError?.(error as Error);
+  }
+};
+
+// Ultra-optimized streaming with immediate audio feedback
+export const playUltraStreamingAudio = async (
+  sessionId: string,
+  questionId: string,
+  onProgress?: (loaded: number) => void,
+  onComplete?: () => void,
+  onError?: (error: Error) => void
+): Promise<void> => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/practice/voice-help-stream-ultra`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'audio/mpeg',
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          question_id: questionId,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    if (!response.body) {
+      throw new Error('No response body available for streaming');
+    }
+
+    // Create a MediaSource for progressive playback
+    if ('MediaSource' in window) {
+      const mediaSource = new MediaSource();
+      const audio = new Audio();
+      audio.src = URL.createObjectURL(mediaSource);
+
+      mediaSource.addEventListener('sourceopen', async () => {
+        try {
+          const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
+          const reader = response.body!.getReader();
+          let totalLoaded = 0;
+
+          const pump = async (): Promise<void> => {
+            const { done, value } = await reader.read();
+
+            if (done) {
+              if (mediaSource.readyState === 'open') {
+                mediaSource.endOfStream();
+              }
+              onComplete?.();
+              return;
+            }
+
+            if (value) {
+              totalLoaded += value.length;
+              onProgress?.(totalLoaded);
+
+              // Wait for the source buffer to be ready
+              await new Promise<void>((resolve) => {
+                if (!sourceBuffer.updating) {
+                  resolve();
+                } else {
+                  sourceBuffer.addEventListener('updateend', () => resolve(), {
+                    once: true,
+                  });
+                }
+              });
+
+              sourceBuffer.appendBuffer(value);
+              await pump();
+            }
+          };
+
+          // Start playback as soon as we have some data
+          audio.addEventListener(
+            'canplay',
+            () => {
+              audio.play().catch(onError);
+            },
+            { once: true }
+          );
+
+          audio.onerror = () => onError?.(new Error('Audio playback error'));
+
+          await pump();
+        } catch (error) {
+          onError?.(error as Error);
+        }
+      });
+    } else {
+      // Fallback: collect all chunks then play
+      await streamToAudio(
+        response.body,
+        onProgress ? (chunk) => onProgress(chunk.length) : undefined,
+        onComplete,
+        onError
+      );
+    }
+  } catch (error) {
+    console.error('Error playing ultra streaming audio:', error);
+    onError?.(error as Error);
+  }
+};
