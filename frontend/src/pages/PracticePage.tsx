@@ -12,6 +12,7 @@ import {
   submitAnswer,
   getPracticeSummary,
   getQuestionHelp,
+  getQuestionVoiceHelp,
 } from '../services/api';
 import NumericKeypad from '../components/NumericKeypad';
 import FeedbackDisplay from '../components/FeedbackDisplay';
@@ -55,6 +56,10 @@ const PracticePage: React.FC = () => {
     canRetry: boolean;
   } | null>(null);
   const [helpRetryCount, setHelpRetryCount] = useState<number>(0);
+
+  // Voice help state
+  const [isLoadingVoiceHelp, setIsLoadingVoiceHelp] = useState<boolean>(false);
+  const [voiceHelpError, setVoiceHelpError] = useState<string | null>(null);
 
   // Ref to track auto-retry timeout
   const helpRetryTimeoutRef = useRef<number | null>(null);
@@ -1103,6 +1108,41 @@ const PracticePage: React.FC = () => {
     handleRequestHelp(false);
   };
 
+  // Click handler for voice help button
+  const handleVoiceHelpButtonClick = async () => {
+    if (!sessionId || !currentQuestion) return;
+
+    setIsLoadingVoiceHelp(true);
+    setVoiceHelpError(null);
+
+    try {
+      const audioBlob = await getQuestionVoiceHelp(
+        sessionId,
+        currentQuestion.id
+      );
+
+      // Create audio URL and play it
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      audio.onerror = () => {
+        setVoiceHelpError('音频播放失败');
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      await audio.play();
+    } catch (error) {
+      console.error('Error playing voice help:', error);
+      setVoiceHelpError('获取语音提示失败，请稍后重试');
+    } finally {
+      setIsLoadingVoiceHelp(false);
+    }
+  };
+
   const handleCloseHelp = () => {
     // Clear any pending retry timeout when help window is closed
     if (helpRetryTimeoutRef.current) {
@@ -1166,7 +1206,7 @@ const PracticePage: React.FC = () => {
           show={feedback.show}
         />
 
-        {/* Help button - only show if not answered yet */}
+        {/* Help buttons - only show if not answered yet */}
         {!isAnswerSubmitted && (
           <div className="help-button-container">
             <button
@@ -1176,7 +1216,20 @@ const PracticePage: React.FC = () => {
             >
               {isLoadingHelp ? '加载中...' : '🤔 帮我一下'}
             </button>
+            <button
+              onClick={handleVoiceHelpButtonClick}
+              className="voice-help-button"
+              disabled={isLoadingVoiceHelp || isLoading}
+              title="语音提示"
+            >
+              {isLoadingVoiceHelp ? '🔄' : '🔊 语音提示'}
+            </button>
           </div>
+        )}
+
+        {/* Voice help error display */}
+        {voiceHelpError && (
+          <div className="voice-help-error">{voiceHelpError}</div>
         )}
       </main>
 

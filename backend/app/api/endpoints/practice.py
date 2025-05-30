@@ -1,14 +1,18 @@
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, Response
 from typing import List, Dict, Tuple, Optional
 from uuid import UUID, uuid4
 from datetime import datetime
+import random
+import logging
 from app.models.practice import PracticeSession, Question
 from app.models.difficulty import DifficultyLevel
 from app.api.endpoints.difficulty import difficulty_levels_objects # To get difficulty details
 from app.services.columnar_practice_service import generate_columnar_question
 from app.services.llm_service import llm_service
-import random
+from app.services.tts_service import tts_service
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -520,6 +524,45 @@ async def get_question_help(request: HelpRequest):
             thinking_process=thinking_process,
             solution_steps=solution_steps
         )
+
+@router.post("/voice-help")
+async def get_question_voice_help(request: HelpRequest):
+    """
+    Provide voice help for a specific question using Azure TTS.
+    Returns audio data as MP3.
+    """
+    # Validate session exists
+    if request.session_id not in active_sessions:
+        raise HTTPException(status_code=404, detail="Practice session not found")
+    
+    session = active_sessions[request.session_id]
+    
+    # Find the specific question
+    question = None
+    for q in session.questions:
+        if q.id == request.question_id:
+            question = q
+            break
+    
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    
+    try:
+        # Generate voice help using TTS service
+        audio_bytes = tts_service.generate_voice_help(question)
+        
+        # Return audio as MP3
+        return Response(
+            content=audio_bytes,
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": "attachment; filename=voice_help.mp3",
+                "Cache-Control": "no-cache"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error generating voice help: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate voice help")
 
 def generate_arithmetic_help_mock(question: Question) -> str:
     """Generate mock help content for arithmetic questions"""

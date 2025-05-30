@@ -158,3 +158,28 @@ export const getQuestionHelp = async (
     throw error;
   }
 };
+
+export const getQuestionVoiceHelp = async (
+  sessionId: string,
+  questionId: string
+): Promise<Blob> => {
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/practice/voice-help`,
+      {
+        session_id: sessionId,
+        question_id: questionId,
+      },
+      {
+        responseType: 'blob',
+        headers: {
+          Accept: 'audio/mpeg',
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching voice help:', error);
+    throw error;
+  }
+};

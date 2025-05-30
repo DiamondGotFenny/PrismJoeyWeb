@@ -123,9 +123,11 @@
 .help-button-container {
   display: flex;
   justify-content: center;
+  gap: 15px; /* Add gap between buttons */
   margin: 20px 0; /* Add some margin above and below */
   width: 100%;
   max-width: 600px; /* Consistent with question area */
+  flex-wrap: wrap; /* Allow wrapping on smaller screens */
 }
 
 .help-button {
@@ -159,6 +161,49 @@
   background-color: #ccc;
   color: #888;
   cursor: not-allowed;
+}
+
+.voice-help-button {
+  font-family: var(--font-family-button);
+  font-size: 1.1rem;
+  padding: 12px 25px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    transform 0.1s ease;
+  min-width: 150px;
+  text-align: center;
+  background-color: var(--primary-blue); /* Using blue for voice help */
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px; /* Space between icon and text */
+}
+
+.voice-help-button:hover:not(:disabled) {
+  background-color: #1976d2; /* Darker blue on hover */
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.voice-help-button:disabled {
+  background-color: #ccc;
+  color: #888;
+  cursor: not-allowed;
+}
+
+.voice-help-error {
+  color: var(--error-red);
+  font-size: 0.9rem;
+  text-align: center;
+  margin-top: 10px;
+  padding: 8px 16px;
+  background-color: rgba(244, 67, 54, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(244, 67, 54, 0.3);
 }
 
 .columnar-submit-container {
