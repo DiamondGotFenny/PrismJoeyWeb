@@ -142,12 +142,33 @@ class TTSService:
         operand_description = "未知"
         if question.columnar_operands:
             operand_strs = []
+            operand_descriptions = []
             for i, operand_row in enumerate(question.columnar_operands):
                 digits = [str(d) if d is not None else "_" for d in operand_row]
-                operand_strs.append("".join(digits))
-            operand_description = f"第一个数是 {operand_strs[0]}"
-            if len(operand_strs) > 1:
-                operand_description += f"，第二个数是 {operand_strs[1]}"
+                operand_str = "".join(digits)
+                operand_strs.append(operand_str)
+                
+                # Count blanks in this operand
+                blank_count = sum(1 for d in operand_row if d is None)
+                if blank_count > 0:
+                    operand_descriptions.append(f"{operand_str}（有{blank_count}个空格）")
+                else:
+                    operand_descriptions.append(operand_str)
+            
+            operand_description = f"第一个数是 {operand_descriptions[0]}"
+            if len(operand_descriptions) > 1:
+                operand_description += f"，第二个数是 {operand_descriptions[1]}"
+            
+            # Include the result row with placeholders - this is crucial for understanding the complete question
+            if question.columnar_result_placeholders:
+                result_digits = [str(d) if d is not None else "_" for d in question.columnar_result_placeholders]
+                result_str = "".join(result_digits)
+                operand_description += f"，答案行是 {result_str}"
+                
+                # Count how many blanks need to be filled
+                blank_count = sum(1 for d in question.columnar_result_placeholders if d is None)
+                if blank_count > 0:
+                    operand_description += f"（其中有{blank_count}个空格需要填写）"
         
         prompt = f"""你是一位温和耐心的小学数学老师，现在要通过语音帮助一个小朋友解决竖式计算题。请用亲切、简单易懂的中文为这道竖式题提供语音讲解。
 
@@ -157,12 +178,14 @@ class TTSService:
 
 请注意：
 1. 这段文字将通过语音合成播放给小朋友听，所以要口语化、自然流畅
-2. 重点讲解竖式计算的方法和步骤
+2. 重点讲解竖式计算的方法和步骤，帮助孩子理解如何填写所有的空格
 3. 语调要温和鼓励，让孩子觉得数学很有趣
 4. 强调"从右到左，一位一位算"的重要原则
 5. 如果是加法，要提醒进位；如果是减法，要提醒借位
 6. 用简单的语言解释为什么要这样对齐
-7. 鼓励孩子仔细、耐心地完成每一步
+7. 要指导孩子如何推理出每个空格的数字，包括操作数中的空格和答案中的空格。
+8. 注意，有时候填什么数字才能让竖式成立，答案是有几个可能，要提示孩子多思考各种可能。
+9. 鼓励孩子仔细、耐心地完成每一步
 
 请直接输出语音讲解内容，不要包含任何格式标记："""
 
