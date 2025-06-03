@@ -1,0 +1,331 @@
+/* Math Icon Component Styles - Text-based for numbers/operators, SVG for equals */
+.math-icon {
+  display: inline-block;
+  font-family: var(--font-family-numeric); /* Baloo 2 Bold */
+  font-weight: 800; /* Extra bold */
+  line-height: 1;
+  text-align: center;
+  position: relative;
+  background: none; /* No explicit background shape */
+  padding: 0.1em; /* Minimal padding */
+  transition: transform 0.15s ease-out;
+  -webkit-text-stroke-width: 0px; /* Base for text stroke */
+  -webkit-text-stroke-color: transparent;
+  paint-order: stroke fill; /* Defines the order in which stroke and fill are painted */
+}
+
+.math-icon:hover {
+  transform: scale(1.1) translateY(-1px);
+}
+
+/* Size variations - primarily affects font-size and stroke */
+.math-icon--small {
+  font-size: 1.8rem;
+  -webkit-text-stroke-width: 2px;
+}
+
+.math-icon--medium {
+  font-size: 2.5rem;
+  -webkit-text-stroke-width: 3px;
+}
+
+.math-icon--large {
+  font-size: 3.5rem;
+  -webkit-text-stroke-width: 4px; /* Thicker stroke for larger icons */
+}
+
+/* Base text color - this will be the inner fill of the character */
+.math-icon {
+  color: white; /* Default inner fill - can be overridden by color classes if needed for specific chars */
+}
+
+/* Color variations - Applied via text color (fill) and text-stroke (outline) */
+.math-icon--red {
+  color: var(--primary-red); /* Main fill */
+  -webkit-text-stroke-color: color-mix(
+    in srgb,
+    var(--primary-red) 60%,
+    black
+  ); /* Darker outline */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2); /* Subtle drop shadow for depth */
+}
+
+.math-icon--orange {
+  color: var(--primary-orange);
+  -webkit-text-stroke-color: color-mix(
+    in srgb,
+    var(--primary-orange) 60%,
+    black
+  );
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.math-icon--yellow {
+  color: var(--primary-yellow);
+  -webkit-text-stroke-color: color-mix(
+    in srgb,
+    var(--primary-yellow) 60%,
+    black
+  );
+  /* For yellow, the text character itself (the "hole") might need to be darker */
+  /* This is hard with just text-stroke. We set a darker color for the text fill via JS in MathIcon.tsx if needed */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.math-icon--green {
+  color: var(--primary-green);
+  -webkit-text-stroke-color: color-mix(
+    in srgb,
+    var(--primary-green) 60%,
+    black
+  );
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.math-icon--blue {
+  color: var(--primary-blue);
+  -webkit-text-stroke-color: color-mix(in srgb, var(--primary-blue) 60%, black);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.math-icon--indigo {
+  color: var(--primary-indigo);
+  -webkit-text-stroke-color: color-mix(
+    in srgb,
+    var(--primary-indigo) 60%,
+    black
+  );
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.math-icon--violet {
+  color: var(--primary-violet);
+  -webkit-text-stroke-color: color-mix(
+    in srgb,
+    var(--primary-violet) 60%,
+    black
+  );
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Styling for the SVG container for the equals sign */
+.math-icon.math-icon--equals-special {
+  /* SVG handles its own appearance, so minimal styling here */
+  display: inline-flex; /* To align with text-based icons if needed */
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle; /* Align SVG nicely with text */
+  padding: 0; /* SVG has its own padding/viewBox */
+  line-height: 0; /* Prevent extra space from line-height */
+  /* Remove text-specific properties that might interfere */
+  -webkit-text-stroke-width: 0;
+  -webkit-text-stroke-color: transparent;
+  text-shadow: none;
+  color: transparent; /* Hide any accidental text character render */
+}
+
+/* Override to ensure Baloo 2 is used and inner color for yellow is dark */
+.math-icon--yellow span {
+  color: var(
+    --color-deep-navy
+  ); /* Ensure inner part of yellow number is dark */
+}
+.math-icon--yellow {
+  color: var(--primary-yellow); /* The fill color */
+  -webkit-text-stroke-color: color-mix(
+    in srgb,
+    var(--primary-yellow) 60%,
+    black
+  );
+}
+
+/* Ensure the span inside (actual character) for non-equals gets the inner color */
+/* This might need adjustment. The .math-icon class gets the color, which becomes the fill */
+/* If we want the text char to be white (hole), the .math-icon color is the fill, and text-stroke the outline */
+/* Let's set the actual text character to white, and the .math-icon color classes will provide the main color */
+
+.math-icon span {
+  /* This is the actual character. We can style its color for the inner part */
+  /* This seems to be problematic. The parent .math-icon already has the color */
+}
+
+/* Correct approach: .math-icon color is the FILL. -webkit-text-stroke is the OUTLINE. The text characters themselves are the fill. */
+/* For characters like '3' or '5', their 'holes' will be the background. */
+/* If holes need a *different* color than background, it gets very complex with pure CSS text. */
+/* The user image shows the 'holes' in 3 and 5 as a lighter tint of the main color. */
+/* This is extremely hard with CSS text rendering. text-shadow for an inner highlight is possible. */
+
+.math-icon--green {
+  color: var(--primary-green);
+  -webkit-text-stroke-color: color-mix(
+    in srgb,
+    var(--primary-green) 60%,
+    black
+  );
+  text-shadow:
+    0 0 0px color-mix(in srgb, var(--primary-green) 120%, white),
+    /* Inner highlight */ 1px 1px 2px rgba(0, 0, 0, 0.2); /* Drop shadow */
+}
+
+.math-icon--blue {
+  color: var(--primary-blue);
+  -webkit-text-stroke-color: color-mix(in srgb, var(--primary-blue) 60%, black);
+  text-shadow:
+    0 0 0px color-mix(in srgb, var(--primary-blue) 120%, white),
+    /* Inner highlight */ 1px 1px 2px rgba(0, 0, 0, 0.2); /* Drop shadow */
+}
+/* Apply similar inner highlight to other colors if desired */
+.math-icon--red {
+  color: var(--primary-red);
+  -webkit-text-stroke-color: color-mix(in srgb, var(--primary-red) 60%, black);
+  text-shadow:
+    0 0 0px color-mix(in srgb, var(--primary-red) 120%, white),
+    1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+/* ... and so on for orange, indigo, violet ... */
+/* Yellow is special, as its main char color is dark navy */
+.math-icon--yellow {
+  -webkit-text-fill-color: var(
+    --color-deep-navy
+  ); /* The actual character strokes */
+  color: var(
+    --primary-yellow
+  ); /* This will be used by text-shadow for the 'fill' effect */
+  -webkit-text-stroke-color: color-mix(
+    in srgb,
+    var(--primary-yellow) 65%,
+    black
+  ); /* Darker yellow outline */
+  text-shadow: 
+    /* Create the yellow fill effect around the deep-navy character */
+    1px 0 0 var(--primary-yellow),
+    -1px 0 0 var(--primary-yellow),
+    0 1px 0 var(--primary-yellow),
+    0 -1px 0 var(--primary-yellow),
+    /* Optional: subtle darker edge for depth */ 1px 1px 1px rgba(0, 0, 0, 0.1);
+}
+
+/* The actual text character needs to be explicitly colored for the inner highlight where needed, */
+/* or the default color: white (from .math-icon) will apply to the fill. */
+/* The provided reference image suggests the 'holes' are lighter. */
+/* This text-shadow method for inner highlight is an approximation. */
+
+/* Final structure attempt: */
+/* .math-icon color = main fill */
+/* .math-icon -webkit-text-stroke-color = dark outline */
+/* .math-icon text-shadow = inner highlight (lighter version of fill) + drop shadow */
+/* The actual character glyph IS the fill. */
+
+/* Re-do color classes for clarity with this new text-stroke approach */
+
+.math-icon--red {
+  color: var(--primary-red);
+  -webkit-text-stroke-color: color-mix(in srgb, var(--primary-red) 60%, black);
+  text-shadow:
+    0px 0px 1px color-mix(in srgb, var(--primary-red) 150%, white),
+    /* Inner light edge/highlight */ 1px 1px 2px rgba(0, 0, 0, 0.3); /* Drop shadow */
+}
+
+.math-icon--orange {
+  color: var(--primary-orange);
+  -webkit-text-stroke-color: color-mix(
+    in srgb,
+    var(--primary-orange) 60%,
+    black
+  );
+  text-shadow:
+    0px 0px 1px color-mix(in srgb, var(--primary-orange) 150%, white),
+    1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.math-icon--yellow {
+  color: var(--primary-yellow);
+  -webkit-text-stroke-color: color-mix(
+    in srgb,
+    var(--primary-yellow) 65%,
+    black
+  );
+  /* Inner char color is set to deep-navy in component for yellow */
+  /* To achieve that, we need to override the component's span color here or ensure component sets it */
+  /* For now, the span inside will be --color-deep-navy set by component logic */
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.math-icon--green {
+  color: var(--primary-green);
+  -webkit-text-stroke-color: color-mix(
+    in srgb,
+    var(--primary-green) 60%,
+    black
+  );
+  text-shadow:
+    0px 0px 1px color-mix(in srgb, var(--primary-green) 150%, white),
+    1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.math-icon--blue {
+  color: var(--primary-blue);
+  -webkit-text-stroke-color: color-mix(in srgb, var(--primary-blue) 60%, black);
+  text-shadow:
+    0px 0px 1px color-mix(in srgb, var(--primary-blue) 150%, white),
+    1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.math-icon--indigo {
+  color: var(--primary-indigo);
+  -webkit-text-stroke-color: color-mix(
+    in srgb,
+    var(--primary-indigo) 60%,
+    black
+  );
+  text-shadow:
+    0px 0px 1px color-mix(in srgb, var(--primary-indigo) 150%, white),
+    1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.math-icon--violet {
+  color: var(--primary-violet);
+  -webkit-text-stroke-color: color-mix(
+    in srgb,
+    var(--primary-violet) 60%,
+    black
+  );
+  text-shadow:
+    0px 0px 1px color-mix(in srgb, var(--primary-violet) 150%, white),
+    1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Special color for the text character itself if it needs to be different from the main fill, e.g., for yellow */
+.math-icon--yellow span {
+  /* This selector won't work as the span IS the .math-icon if it's just text */
+}
+
+/* If MathIcon component renders <span className="math-icon..."><span className="char">{character}</span></span> */
+/* Then we could style .math-icon--yellow .char { color: var(--color-deep-navy); } */
+/* But current MathIcon renders <span className="math-icon...">{character}</span> */
+/* The color of the character itself needs to be controlled by the .math-icon--color class */
+/* The text-shadow approach for inner highlights works on the main color. */
+
+/* For yellow, to make the character dark with yellow fill and dark outline: */
+/* This is tricky. `-webkit-text-fill-color` can be used but we want the fill to be yellow. */
+
+.math-icon--yellow {
+  -webkit-text-fill-color: var(
+    --color-deep-navy
+  ); /* The actual character strokes */
+  color: var(
+    --primary-yellow
+  ); /* This will be used by text-shadow for the 'fill' effect */
+  -webkit-text-stroke-color: color-mix(
+    in srgb,
+    var(--primary-yellow) 65%,
+    black
+  ); /* Darker yellow outline */
+  text-shadow: 
+    /* Create the yellow fill effect around the deep-navy character */
+    1px 0 0 var(--primary-yellow),
+    -1px 0 0 var(--primary-yellow),
+    0 1px 0 var(--primary-yellow),
+    0 -1px 0 var(--primary-yellow),
+    /* Optional: subtle darker edge for depth */ 1px 1px 1px rgba(0, 0, 0, 0.1);
+}

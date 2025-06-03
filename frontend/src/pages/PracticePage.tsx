@@ -20,7 +20,9 @@ import NumericKeypad from '../components/NumericKeypad';
 import FeedbackDisplay from '../components/FeedbackDisplay';
 import ColumnarCalculation from '../components/ColumnarCalculation'; // Import ColumnarCalculation
 import HelpBox from '../components/HelpBox';
+import MathIcon from '../components/MathIcon'; // Import MathIcon component
 import '../styles/PracticePage.css';
+import joeyThinking from '../assets/mascot/PrismJoey_Mascot_Thinking Pose.png'; // Import joey thinking mascot
 
 const PracticePage: React.FC = () => {
   const location = useLocation();
@@ -1221,6 +1223,63 @@ const PracticePage: React.FC = () => {
     setHelpRetryCount(0);
   };
 
+  const parseMathExpression = (expression: string): React.ReactNode[] => {
+    const parts: React.ReactNode[] = [];
+    let currentNumber = '';
+
+    for (let i = 0; i < expression.length; i++) {
+      const char = expression[i];
+      if (/\d/.test(char)) {
+        currentNumber += char;
+      } else {
+        if (currentNumber) {
+          parts.push(
+            <MathIcon
+              key={`num-${i}`}
+              character={currentNumber}
+              size="large"
+              color="auto"
+            />
+          );
+          currentNumber = '';
+        }
+        // Operators and spaces
+        if (char === ' ') {
+          parts.push(
+            <span key={`space-${i}`} className="expression-space">
+              {' '}
+            </span>
+          );
+        } else {
+          // For operators like +, -, *, /, =, ?
+          parts.push(
+            <MathIcon
+              key={`op-${i}`}
+              character={char}
+              size="large"
+              color="auto"
+            />
+          );
+        }
+      }
+    }
+    if (currentNumber) {
+      parts.push(
+        <MathIcon
+          key="num-last"
+          character={currentNumber}
+          size="large"
+          color="auto"
+        />
+      );
+    }
+    return parts;
+  };
+
+  const displayedExpression = currentQuestion
+    ? parseMathExpression(currentQuestion.question_string)
+    : [];
+
   return (
     <div className="practice-container">
       <header className="practice-header">
@@ -1251,11 +1310,27 @@ const PracticePage: React.FC = () => {
             className="question-display question-enter-active"
             key={questionAnimationKey}
           >
-            <span className="expression">
-              {currentQuestion.question_string}
-            </span>
-            <span className="equals-sign">=</span>
-            <span className="answer-placeholder">?</span>
+            <div className="expression">
+              {displayedExpression.map((part, index) => (
+                <React.Fragment key={index}>{part}</React.Fragment>
+              ))}
+              {/* Render the main equals sign that appears AFTER the input boxes */}
+              {/* This now uses character="=" which will trigger the SVG via MathIcon.tsx logic */}
+              {!isAnswerSubmitted &&
+                currentQuestion.question_string.includes('=') && (
+                  <MathIcon character="=" size="large" color="auto" />
+                )}
+              {isAnswerSubmitted && currentAnswer && (
+                <>
+                  <MathIcon character="=" size="large" color="auto" />
+                  <MathIcon
+                    character={parseInt(currentAnswer, 10)}
+                    size="large"
+                    color={feedback.isCorrect ? 'green' : 'red'}
+                  />
+                </>
+              )}
+            </div>
           </div>
         )}
 
@@ -1276,10 +1351,21 @@ const PracticePage: React.FC = () => {
           <div className="help-button-container">
             <button
               onClick={handleHelpButtonClick}
-              className="help-button"
+              className="help-button button-prism button-violet"
               disabled={isLoadingHelp || isLoading}
             >
-              {isLoadingHelp ? '加载中...' : '🤔 帮我一下'}
+              {isLoadingHelp ? (
+                '加载中...'
+              ) : (
+                <>
+                  <img
+                    src={joeyThinking}
+                    alt="Joey Thinking"
+                    className="button-mascot"
+                  />
+                  帮我一下
+                </>
+              )}
             </button>
             <button
               onClick={handleVoiceHelpButtonClick}

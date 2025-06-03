@@ -1,6 +1,7 @@
 import React from 'react';
 import type { HelpResponse } from '../services/api';
 import '../styles/HelpBox.css';
+import joeyThinking from '../assets/mascot/PrismJoey_Mascot_Thinking Pose.png';
 
 interface HelpBoxProps {
   helpData: HelpResponse | null;
@@ -31,7 +32,14 @@ const HelpBox: React.FC<HelpBoxProps> = ({
     <div className="help-box-overlay">
       <div className="help-box">
         <div className="help-box-header">
-          <h3>🤔 解题帮助</h3>
+          <div className="help-title">
+            <img
+              src={joeyThinking}
+              alt="Joey Thinking"
+              className="help-mascot"
+            />
+            <h3>解题帮助</h3>
+          </div>
           <button className="help-close-button" onClick={onClose}>
             ✕
           </button>

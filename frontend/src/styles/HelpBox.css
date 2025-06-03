@@ -53,6 +53,19 @@
   align-items: center;
 }
 
+/* Help title with mascot */
+.help-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.help-mascot {
+  max-height: 40px;
+  width: auto;
+  object-fit: contain;
+}
+
 .help-box-header h3 {
   margin: 0;
   color: #333;

@@ -1,78 +1,155 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Comic+Neue:wght@700&family=Roboto:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;800&family=Baloo+2:wght@700&display=swap');
 
 :root {
-  /* Rainbow Colors */
-  --primary-red: #FF6B6B;
-  --primary-orange: #FFA500;
-  --primary-yellow: #FFD700; /* Adjusted from #FFFF00 for better visibility on light bg */
-  --primary-green: #4CAF50;
-  --primary-blue: #3B82F6;
-  --primary-indigo: #6366F1;
-  --primary-violet: #8B5CF6;
+  /* Prism Rainbow Colors */
+  --primary-red: #f8615a;
+  --primary-orange: #f99b38;
+  --primary-yellow: #ffd24c;
+  --primary-green: #34c759;
+  --primary-blue: #3da5f6;
+  --primary-indigo: #766af6;
+  --primary-violet: #bd5eff;
 
-  /* Greyscale Palette */
-  --background: #F7FAFC; /* Light Gray */
-  --surface: #FFFFFF;    /* White */
-  --text-primary: #2D3748; /* Dark Gray */
-  --text-secondary: #718096; /* Medium Gray */
-  --border-color: #E2E8F0; /* Light Gray Border */
+  /* Neutral/Support Colors */
+  --color-deep-navy: #10335b;
+  --color-cloud-grey: #f2f6fa;
+  --color-snow-white: #ffffff;
 
-  /* Semantic Colors */
+  /* Accent Highlight */
+  --color-star-gold: #ffc833;
+
+  /* Greyscale Palette (derived or mapped from new palette) */
+  --background: var(--color-cloud-grey); /* Cloud Grey */
+  --surface: var(--color-snow-white); /* Snow White */
+  --text-primary: var(--color-deep-navy); /* Deep Navy */
+  --text-secondary: #718096; /* Keeping this for now, can be adjusted if needed */
+  --border-color: #e2e8f0; /* Keeping this for now, can be adjusted */
+
+  /* Semantic Colors (using new primary colors) */
   --accent-color: var(--primary-blue);
   --success-color: var(--primary-green);
   --warning-color: var(--primary-orange);
   --error-color: var(--primary-red);
 
   /* Font Families */
-  --font-family-title: 'Fredoka One', 'Comic Neue', cursive;
-  --font-family-body: 'Roboto', 'Noto Sans SC', sans-serif;
-  --font-family-button: 'Roboto', 'Noto Sans SC', sans-serif;
+  --font-family-title: 'Nunito', sans-serif;
+  --font-family-body: 'Nunito', sans-serif;
+  --font-family-numeric: 'Baloo 2', sans-serif; /* Fallback generic family */
+  --font-family-button: 'Nunito', sans-serif;
 }
 
 body {
   margin: 0;
   font-family: var(--font-family-body);
+  font-weight: 400; /* Nunito Regular */
   background-color: var(--background);
+  background-image: url('/src/assets/patterns/rainbow_bars_clouds_pattern.png');
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center center;
+  min-height: 100vh;
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family:
+    source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
 /* Basic Reset for box-sizing */
 html {
   box-sizing: border-box;
 }
-*, *:before, *:after {
+*,
+*:before,
+*:after {
   box-sizing: inherit;
 }
 
 /* Global styles for headings to use title font */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-family-title);
+  font-weight: 800; /* Nunito ExtraBold */
   color: var(--text-primary); /* Default, can be overridden */
 }
 
 button {
   font-family: var(--font-family-button);
+  font-weight: 700; /* Assuming buttons should be bold, adjust if needed */
   cursor: pointer;
 }
 
 /* Global Button Click Animation */
 .button-interactive {
-  transition: transform 0.1s ease-out, filter 0.1s ease-out;
+  transition:
+    transform 0.1s ease-out,
+    filter 0.1s ease-out;
 }
 
 .button-interactive:hover:not(:disabled) {
   /* Adding a slight brightness increase on hover for non-active state */
-  filter: brightness(105%); 
+  filter: brightness(105%);
 }
 
 .button-interactive:active:not(:disabled) {
   transform: scale(0.95);
   filter: brightness(110%); /* Make it slightly brighter on click */
+}
+
+/* PrismJoey Button Styles */
+.button-prism {
+  padding: 10px 20px;
+  border-radius: 12px; /* Rounded corners */
+  border: none;
+  color: var(--color-snow-white);
+  font-family: var(--font-family-button);
+  font-weight: 700; /* Bold, as set before */
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition:
+    transform 0.1s ease-out,
+    filter 0.1s ease-out,
+    background-color 0.2s ease-in-out;
+}
+
+.button-prism:hover:not(:disabled) {
+  filter: brightness(110%);
+  transform: translateY(-2px); /* Slight lift on hover */
+}
+
+.button-prism:active:not(:disabled) {
+  transform: scale(0.97) translateY(-1px);
+  filter: brightness(115%);
+}
+
+/* Rainbow Color Variants */
+.button-red {
+  background-color: var(--primary-red);
+}
+.button-orange {
+  background-color: var(--primary-orange);
+}
+.button-yellow {
+  background-color: var(--primary-yellow);
+  color: var(--color-deep-navy); /* Yellow often needs darker text */
+}
+.button-green {
+  background-color: var(--primary-green);
+}
+.button-blue {
+  background-color: var(--primary-blue);
+}
+.button-indigo {
+  background-color: var(--primary-indigo);
+}
+.button-violet {
+  background-color: var(--primary-violet);
 }

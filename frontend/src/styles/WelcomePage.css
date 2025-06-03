@@ -6,7 +6,7 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background-color: var(--background);
+  background-color: transparent; /* Changed from var(--background) */
   text-align: center;
   padding: 20px;
   box-sizing: border-box;
@@ -29,28 +29,43 @@
   justify-content: center;
 }
 
-.logo-placeholder span[role="img"] {
+.logo-placeholder span[role='img'] {
   display: inline-block; /* Allows transform */
 }
 
 /* Staggered animation for emojis */
-.logo-placeholder span[role="img"]:first-child {
+.logo-placeholder span[role='img']:first-child {
   animation: bounceIndividual 2.5s infinite ease-in-out 0s;
 }
-.logo-placeholder span[role="img"]:last-child {
+.logo-placeholder span[role='img']:last-child {
   animation: bounceIndividual 2.5s infinite ease-in-out 0.2s; /* Delay second emoji */
 }
 
-
-@keyframes bounceEmoji { /* General container bounce if needed, or remove if individual is enough */
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+@keyframes bounceEmoji {
+  /* General container bounce if needed, or remove if individual is enough */
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 @keyframes bounceIndividual {
-  0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
-  40% {transform: translateY(-25px);} /* Slightly less than example for subtlety */
-  60% {transform: translateY(-12px);}
+  0%,
+  20%,
+  50%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-25px);
+  } /* Slightly less than example for subtlety */
+  60% {
+    transform: translateY(-12px);
+  }
 }
 
 .app-title-chinese {
@@ -73,6 +88,34 @@
   margin-bottom: 2rem;
 }
 
+/* Container for welcome page buttons */
+.welcome-buttons {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Increase size for the main welcome button */
+.welcome-main .button-prism {
+  font-size: 1.75rem;
+  padding: 18px 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px; /* Space between mascot and text */
+  min-height: 80px; /* Ensure consistent height */
+  min-width: 200px; /* Ensure consistent width */
+}
+
+/* Styles for mascot images inside buttons */
+.button-mascot {
+  max-height: 40px;
+  width: auto;
+  object-fit: contain;
+}
+
 .start-button {
   font-family: var(--font-family-button);
   font-weight: 500; /* Medium weight for buttons */
@@ -81,32 +124,42 @@
   min-width: 220px;
   min-height: 70px; /* Ensure meets 64x64 minimum easily */
   color: white;
-  background: linear-gradient(45deg, 
-    var(--primary-red), 
-    var(--primary-orange), 
-    var(--primary-yellow), 
-    var(--primary-green), 
-    var(--primary-blue), 
-    var(--primary-indigo), 
+  background: linear-gradient(
+    45deg,
+    var(--primary-red),
+    var(--primary-orange),
+    var(--primary-yellow),
+    var(--primary-green),
+    var(--primary-blue),
+    var(--primary-indigo),
     var(--primary-violet)
   );
   background-size: 400% 400%; /* Adjusted for smoother animation */
   border: none;
   border-radius: 16px; /* More rounded */
   cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
   animation: gradientShift 12s ease infinite;
   letter-spacing: 0.5px; /* Slight letter spacing for readability */
 }
 
 @keyframes gradientShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
-.start-button:hover, .start-button:focus {
+.start-button:hover,
+.start-button:focus {
   transform: translateY(-4px) scale(1.03); /* More noticeable hover */
   box-shadow: 0 10px 30px rgba(var(--primary-blue-rgb, 59, 130, 246), 0.3); /* Shadow using a primary color */
   outline: none; /* Remove default focus outline if custom is handled */
@@ -114,7 +167,7 @@
 
 .welcome-footer {
   margin-top: 2rem; /* Reduced margin from 3rem */
-  font-size: 1rem; /* Slightly larger for readability */
+  font-size: 1.25rem; /* Increased from 1rem for better readability */
   color: var(--text-secondary);
 }
 
@@ -155,4 +208,19 @@
   .logo-placeholder {
     font-size: 3rem;
   }
+}
+
+/* Styles for the new PrismJoey Logo */
+.app-logo {
+  max-width: 600px; /* Increased from 300px */
+  height: auto;
+  margin-bottom: 20px; /* Example spacing */
+  transition: filter 300ms;
+}
+
+.app-logo:hover {
+  /* Example: use your brand's blue for the drop shadow */
+  filter: drop-shadow(
+    0 0 1.5em color-mix(in srgb, var(--primary-blue) 70%, transparent)
+  );
 }
