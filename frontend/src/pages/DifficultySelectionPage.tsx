@@ -37,14 +37,18 @@ const DifficultySelectionPage: React.FC = () => {
     });
   };
 
+  const handleBackClick = () => {
+    navigate('/mathematics-options');
+  };
+
   if (isLoading)
     return <div className="loading-message">正在加载难度级别...</div>;
   if (error)
     return (
       <div className="error-message">
         {error}{' '}
-        <button className="back-button" onClick={() => navigate('/')}>
-          返回主页
+        <button className="back-button" onClick={handleBackClick}>
+          返回
         </button>
       </div>
     );
@@ -66,9 +70,9 @@ const DifficultySelectionPage: React.FC = () => {
       </div>
       <button
         className="back-button button-interactive"
-        onClick={() => navigate('/')}
+        onClick={handleBackClick}
       >
-        返回主页
+        返回
       </button>
     </div>
   );

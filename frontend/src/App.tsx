@@ -7,6 +7,11 @@ import {
   useLocation,
 } from 'react-router-dom';
 import WelcomePage from './pages/WelcomePage';
+import GradeSelectionPage from './pages/GradeSelectionPage';
+import SubjectSelectionPage from './pages/SubjectSelectionPage';
+import MathematicsOptionsPage from './pages/MathematicsOptionsPage';
+import EnglishDevelopmentPage from './pages/EnglishDevelopmentPage';
+import GeneralKnowledgeDevelopmentPage from './pages/GeneralKnowledgeDevelopmentPage';
 import DifficultySelectionPage from './pages/DifficultySelectionPage';
 import PracticePage from './pages/PracticePage'; // Import the PracticePage
 import './App.css';
@@ -35,6 +40,20 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<WelcomePage />} />
+        <Route path="/grade-selection" element={<GradeSelectionPage />} />
+        <Route path="/subject-selection" element={<SubjectSelectionPage />} />
+        <Route
+          path="/mathematics-options"
+          element={<MathematicsOptionsPage />}
+        />
+        <Route
+          path="/english-development"
+          element={<EnglishDevelopmentPage />}
+        />
+        <Route
+          path="/general-knowledge-development"
+          element={<GeneralKnowledgeDevelopmentPage />}
+        />
         <Route
           path="/difficulty-selection"
           element={<DifficultySelectionPage />}

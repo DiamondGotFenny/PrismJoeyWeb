@@ -1,0 +1,243 @@
+.development-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: transparent;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.development-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.development-header .back-button {
+  background-color: var(--primary-blue);
+  color: var(--color-snow-white);
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-family: var(--font-family-button);
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.development-header .back-button:hover {
+  background-color: var(--primary-indigo);
+  transform: translateY(-2px);
+}
+
+.development-header .page-title {
+  font-family: var(--font-family-title);
+  font-size: 2.5rem;
+  color: var(--text-primary);
+  margin: 0;
+  text-align: center;
+  flex: 1;
+}
+
+.development-main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem 0;
+}
+
+.development-content {
+  background: linear-gradient(
+    135deg,
+    var(--color-snow-white) 0%,
+    var(--color-cloud-grey) 100%
+  );
+  border-radius: 20px;
+  padding: 60px 40px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.development-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 20px;
+  padding: 3px;
+  background: linear-gradient(
+    135deg,
+    var(--primary-orange),
+    var(--primary-yellow),
+    var(--primary-green)
+  );
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  opacity: 0.8;
+}
+
+.mascot-large {
+  max-height: 120px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 30px;
+  position: relative;
+  z-index: 2;
+  animation: gentle-bounce 3s infinite ease-in-out;
+}
+
+@keyframes gentle-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.development-title {
+  font-family: var(--font-family-title);
+  font-size: 2.2rem;
+  color: var(--text-primary);
+  margin: 0 0 20px 0;
+  font-weight: 800;
+  position: relative;
+  z-index: 2;
+}
+
+.development-message {
+  font-family: var(--font-family-body);
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin: 0 0 40px 0;
+  line-height: 1.6;
+  position: relative;
+  z-index: 2;
+}
+
+.coming-soon-features {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  padding: 25px;
+  margin-top: 30px;
+  position: relative;
+  z-index: 2;
+}
+
+.coming-soon-features h3 {
+  font-family: var(--font-family-title);
+  font-size: 1.4rem;
+  color: var(--text-primary);
+  margin: 0 0 20px 0;
+  font-weight: 800;
+}
+
+.coming-soon-features ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.coming-soon-features li {
+  font-family: var(--font-family-body);
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  margin: 10px 0;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  text-align: left;
+}
+
+.coming-soon-features li:last-child {
+  border-bottom: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .development-header {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .development-header .page-title {
+    font-size: 2rem;
+  }
+
+  .development-content {
+    padding: 40px 30px;
+    margin: 0 10px;
+  }
+
+  .mascot-large {
+    max-height: 100px;
+    margin-bottom: 25px;
+  }
+
+  .development-title {
+    font-size: 1.8rem;
+  }
+
+  .development-message {
+    font-size: 1.1rem;
+  }
+
+  .coming-soon-features {
+    padding: 20px;
+  }
+
+  .coming-soon-features h3 {
+    font-size: 1.2rem;
+  }
+
+  .coming-soon-features li {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .development-header .page-title {
+    font-size: 1.8rem;
+  }
+
+  .development-content {
+    padding: 30px 20px;
+  }
+
+  .mascot-large {
+    max-height: 80px;
+    margin-bottom: 20px;
+  }
+
+  .development-title {
+    font-size: 1.6rem;
+  }
+
+  .development-message {
+    font-size: 1rem;
+  }
+
+  .coming-soon-features {
+    padding: 15px;
+  }
+
+  .coming-soon-features h3 {
+    font-size: 1.1rem;
+  }
+
+  .coming-soon-features li {
+    font-size: 0.9rem;
+  }
+}

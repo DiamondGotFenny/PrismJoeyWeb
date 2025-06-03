@@ -1,0 +1,368 @@
+.grade-selection-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: transparent;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.grade-selection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.grade-selection-header .back-button {
+  background-color: var(--primary-blue);
+  color: var(--color-snow-white);
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-family: var(--font-family-button);
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.grade-selection-header .back-button:hover {
+  background-color: var(--primary-indigo);
+  transform: translateY(-2px);
+}
+
+.grade-selection-header .page-title {
+  font-family: var(--font-family-title);
+  font-size: 2.5rem;
+  color: var(--text-primary);
+  margin: 0;
+  text-align: center;
+  flex: 1;
+}
+
+.grade-selection-header .mascot-waving {
+  max-height: 80px;
+  width: auto;
+  object-fit: contain;
+}
+
+.grade-selection-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem 0;
+}
+
+.grade-intro {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.grade-intro p {
+  font-family: var(--font-family-body);
+  font-size: 1.3rem;
+  color: var(--text-secondary);
+  margin: 0;
+  font-weight: 500;
+}
+
+.grades-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  max-width: 1000px;
+  width: 100%;
+  padding: 0 20px;
+}
+
+.grade-card {
+  background: linear-gradient(
+    135deg,
+    var(--color-snow-white) 0%,
+    var(--color-cloud-grey) 100%
+  );
+  border: none;
+  border-radius: 20px;
+  padding: 30px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.grade-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 20px;
+  padding: 3px;
+  background: linear-gradient(135deg, transparent, transparent);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.grade-card:hover {
+  transform: translateY(-8px) scale(1.05);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+}
+
+.grade-card:hover::before {
+  opacity: 1;
+}
+
+/* Individual grade color schemes */
+.grade-red::before {
+  background: linear-gradient(
+    135deg,
+    var(--primary-red),
+    var(--primary-orange)
+  );
+}
+
+.grade-red:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(248, 97, 90, 0.1),
+    rgba(249, 155, 56, 0.1)
+  );
+}
+
+.grade-orange::before {
+  background: linear-gradient(
+    135deg,
+    var(--primary-orange),
+    var(--primary-yellow)
+  );
+}
+
+.grade-orange:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(249, 155, 56, 0.1),
+    rgba(255, 210, 76, 0.1)
+  );
+}
+
+.grade-yellow::before {
+  background: linear-gradient(
+    135deg,
+    var(--primary-yellow),
+    var(--primary-green)
+  );
+}
+
+.grade-yellow:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 210, 76, 0.1),
+    rgba(52, 199, 89, 0.1)
+  );
+}
+
+.grade-green::before {
+  background: linear-gradient(
+    135deg,
+    var(--primary-green),
+    var(--primary-blue)
+  );
+}
+
+.grade-green:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(52, 199, 89, 0.1),
+    rgba(61, 165, 246, 0.1)
+  );
+}
+
+.grade-blue::before {
+  background: linear-gradient(
+    135deg,
+    var(--primary-blue),
+    var(--primary-indigo)
+  );
+}
+
+.grade-blue:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(61, 165, 246, 0.1),
+    rgba(118, 106, 246, 0.1)
+  );
+}
+
+.grade-violet::before {
+  background: linear-gradient(
+    135deg,
+    var(--primary-indigo),
+    var(--primary-violet)
+  );
+}
+
+.grade-violet:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(118, 106, 246, 0.1),
+    rgba(189, 94, 255, 0.1)
+  );
+}
+
+.grade-number {
+  font-family: var(--font-family-numeric);
+  font-size: 3.5rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  position: relative;
+  z-index: 2;
+}
+
+.grade-red .grade-number {
+  color: var(--primary-red);
+}
+
+.grade-orange .grade-number {
+  color: var(--primary-orange);
+}
+
+.grade-yellow .grade-number {
+  color: var(--primary-yellow);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.grade-green .grade-number {
+  color: var(--primary-green);
+}
+
+.grade-blue .grade-number {
+  color: var(--primary-blue);
+}
+
+.grade-violet .grade-number {
+  color: var(--primary-violet);
+}
+
+.grade-label {
+  font-family: var(--font-family-title);
+  font-size: 1.4rem;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+  font-weight: 800;
+  position: relative;
+  z-index: 2;
+}
+
+.grade-description {
+  font-family: var(--font-family-body);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+  position: relative;
+  z-index: 2;
+}
+
+.grade-selection-footer {
+  text-align: center;
+  margin-top: 2rem;
+  padding: 20px;
+}
+
+.grade-selection-footer p {
+  font-family: var(--font-family-body);
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .grade-selection-header {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .grade-selection-header .page-title {
+    font-size: 2rem;
+  }
+
+  .grade-selection-header .mascot-waving {
+    max-height: 60px;
+  }
+
+  .grade-intro p {
+    font-size: 1.1rem;
+  }
+
+  .grades-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    padding: 0 10px;
+  }
+
+  .grade-card {
+    padding: 25px 15px;
+    min-height: 160px;
+  }
+
+  .grade-number {
+    font-size: 3rem;
+  }
+
+  .grade-label {
+    font-size: 1.2rem;
+  }
+
+  .grade-description {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .grade-selection-header .page-title {
+    font-size: 1.8rem;
+  }
+
+  .grades-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .grade-card {
+    padding: 20px 10px;
+    min-height: 140px;
+  }
+
+  .grade-number {
+    font-size: 2.5rem;
+  }
+
+  .grade-label {
+    font-size: 1.1rem;
+  }
+
+  .grade-description {
+    font-size: 0.75rem;
+  }
+
+  .grade-selection-footer p {
+    font-size: 1rem;
+  }
+}

@@ -95,6 +95,8 @@
   justify-content: center;
   align-items: center;
   flex-wrap: wrap;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 /* Increase size for the main welcome button */
@@ -183,14 +185,17 @@
   .app-title-english {
     font-size: 2rem;
   }
-  .start-button {
+  .welcome-main .button-prism {
     font-size: 1.5rem;
     padding: 15px 30px;
-    min-width: 200px;
-    min-height: 64px;
+    min-width: 180px;
+    min-height: 70px;
   }
   .logo-placeholder {
     font-size: 3.5rem;
+  }
+  .welcome-buttons {
+    gap: 15px;
   }
 }
 
@@ -201,12 +206,23 @@
   .app-title-english {
     font-size: 1.7rem;
   }
-  .start-button {
+  .welcome-main .button-prism {
     font-size: 1.3rem;
     padding: 12px 25px;
+    min-width: 160px;
+    min-height: 60px;
   }
   .logo-placeholder {
     font-size: 3rem;
+  }
+  .welcome-buttons {
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+  }
+  .welcome-main .button-prism {
+    width: 100%;
+    max-width: 280px;
   }
 }
 

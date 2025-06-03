@@ -8,7 +8,12 @@ const WelcomePage: React.FC = () => {
   const navigate = useNavigate(); // Initialize useNavigate
 
   const handleStartLearning = () => {
-    navigate('/difficulty-selection'); // Navigate to difficulty selection
+    navigate('/grade-selection'); // Navigate to grade selection first
+  };
+
+  const handleContinueLast = () => {
+    // TODO: Navigate to continue last session when it's implemented
+    alert('继续上次功能正在开发中！');
   };
 
   const handleAchievements = () => {
@@ -29,6 +34,12 @@ const WelcomePage: React.FC = () => {
           >
             <img src={joeyWaving} alt="Joey Waving" className="button-mascot" />
             开始学习
+          </button>
+          <button
+            className="button-prism button-green"
+            onClick={handleContinueLast}
+          >
+            继续上次
           </button>
           <button
             className="button-prism button-orange"
