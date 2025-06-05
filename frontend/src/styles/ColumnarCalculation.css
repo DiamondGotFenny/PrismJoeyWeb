@@ -31,9 +31,9 @@
   display: flex; /* To center MathIcon inside */
   align-items: center;
   justify-content: center;
-  min-width: 40px;  /* Increased min-width for medium icons */
+  min-width: 40px; /* Increased min-width for medium icons */
   min-height: 45px; /* Increased min-height for medium icons */
-  padding: 3px;     /* Adjusted padding */
+  padding: 3px; /* Adjusted padding */
   box-sizing: border-box;
   /* font-size for MathIcon is controlled by its 'size' prop */
 }
@@ -61,7 +61,9 @@
 
 .placeholder:hover,
 .placeholder.active {
-  background-color: var(--primary-blue-light-transparent); /* Highlight on hover/active */
+  background-color: var(
+    --primary-blue-light-transparent
+  ); /* Highlight on hover/active */
   border: 1px solid var(--primary-blue);
 }
 
@@ -110,4 +112,22 @@
   .calculation-grid {
     gap: 2px;
   }
+}
+
+.interactive-placeholder {
+  border: 2px dashed #4a90e2; /* Blue dashed border */
+  cursor: pointer;
+  background-color: #f8f9fa; /* Slightly different background to indicate interactivity */
+  border-radius: 4px;
+}
+
+.interactive-placeholder:hover {
+  background-color: #e9ecef; /* Lighter background on hover */
+}
+
+.interactive-placeholder.active,
+.digit-entry.active {
+  border: 2px solid #3498db; /* More prominent solid blue border for active */
+  box-shadow: 0 0 5px rgba(52, 152, 219, 0.5); /* Subtle glow for active */
+  background-color: #e0efff; /* Light blue background when active */
 }

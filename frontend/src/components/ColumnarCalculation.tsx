@@ -144,7 +144,7 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
       // Interactive placeholder (empty input)
       return (
         <div
-          className={`digit-cell placeholder ${isActive ? 'active' : ''}`}
+          className={`digit-cell placeholder interactive-placeholder ${isActive ? 'active' : ''}`}
           onClick={handlePlaceholderClick}
           role="button"
           tabIndex={0}
