@@ -29,13 +29,21 @@ interface ColumnarCalculationProps {
 
 const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
   question,
+  onAnswerChange,
   showCorrectAnswer,
   onInputFocus,
   activeInput,
   externalOperandDigits,
   externalResultDigits,
-  // onAnswerChange is destructured but not called directly in this component's rendering logic
 }) => {
+  console.log('[ColumnarCalculation] Rendered with props:', {
+    questionId: question.id,
+    questionType: question.question_type,
+    hasOnAnswerChange: !!onAnswerChange,
+    hasActiveInput: !!activeInput,
+    externalOperandDigits,
+    externalResultDigits,
+  });
   const {
     columnar_operands,
     columnar_operation,
@@ -47,6 +55,13 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
 
   const displayOperands = externalOperandDigits || baseOperands;
   const displayResult = externalResultDigits || baseResultPlaceholders;
+
+  console.log('[ColumnarCalculation] Data analysis:', {
+    baseOperands,
+    baseResultPlaceholders,
+    displayOperands,
+    displayResult,
+  });
 
   const getGridTemplateColumns = (maxLength: number) => {
     // Add 1 for the operator column
@@ -195,26 +210,29 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
             {/* Digits, padded with non-interactive placeholders */}
             {Array(maxOperandLength - (operand ? operand.length : 0))
               .fill(null)
-              .map(
-                (_, padIndex) =>
-                  renderDigit(
+              .map((_, padIndex) => (
+                <React.Fragment key={`operand-${opIndex}-pad-${padIndex}`}>
+                  {renderDigit(
                     ' ',
                     'placeholder',
                     opIndex,
                     padIndex + 1000,
                     false
-                  ) // key adjusted
-              )}
-            {(operand || []).map((digit, digitIndex) =>
-              renderDigit(
-                digit,
-                'operand',
-                opIndex,
-                digitIndex,
-                baseOperands[opIndex]?.[digitIndex] === null &&
-                  !showCorrectAnswer
-              )
-            )}
+                  )}
+                </React.Fragment>
+              ))}
+            {(operand || []).map((digit, digitIndex) => (
+              <React.Fragment key={`operand-${opIndex}-digit-${digitIndex}`}>
+                {renderDigit(
+                  digit,
+                  'operand',
+                  opIndex,
+                  digitIndex,
+                  baseOperands[opIndex]?.[digitIndex] === null &&
+                    !showCorrectAnswer
+                )}
+              </React.Fragment>
+            ))}
           </React.Fragment>
         ))}
       </div>
@@ -228,19 +246,28 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
         {/* Digits, padded with non-interactive placeholders */}
         {Array(maxOperandLength - (displayResult ? displayResult.length : 0))
           .fill(null)
-          .map(
-            (_, padIndex) =>
-              renderDigit(' ', 'placeholder', undefined, padIndex + 2000, false) // key adjusted
-          )}
-        {(displayResult || []).map((digit, digitIndex) =>
-          renderDigit(
-            digit,
-            'result',
-            undefined,
-            digitIndex,
-            baseResultPlaceholders[digitIndex] === null && !showCorrectAnswer
-          )
-        )}
+          .map((_, padIndex) => (
+            <React.Fragment key={`result-pad-${padIndex}`}>
+              {renderDigit(
+                ' ',
+                'placeholder',
+                undefined,
+                padIndex + 2000,
+                false
+              )}
+            </React.Fragment>
+          ))}
+        {(displayResult || []).map((digit, digitIndex) => (
+          <React.Fragment key={`result-digit-${digitIndex}`}>
+            {renderDigit(
+              digit,
+              'result',
+              undefined,
+              digitIndex,
+              baseResultPlaceholders[digitIndex] === null && !showCorrectAnswer
+            )}
+          </React.Fragment>
+        ))}
       </div>
     </div>
   );

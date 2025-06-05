@@ -1,110 +1,91 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import type {
-  PracticeSession,
-  Question,
-  AnswerPayload,
-  HelpResponse,
-} from '../services/api';
-import {
-  startPracticeSession,
-  getNextQuestion,
-  submitAnswer,
-  getPracticeSummary,
-  getQuestionHelp,
-  getQuestionVoiceHelp,
-  playStreamingAudio,
-  playUltraStreamingAudio,
-} from '../services/api';
 import NumericKeypad from '../components/NumericKeypad';
 import FeedbackDisplay from '../components/FeedbackDisplay';
-import ColumnarCalculation from '../components/ColumnarCalculation'; // Import ColumnarCalculation
+import ColumnarCalculation from '../components/ColumnarCalculation';
 import HelpBox from '../components/HelpBox';
-import MathIcon from '../components/MathIcon'; // Import MathIcon component
+import MathIcon from '../components/MathIcon';
 import '../styles/PracticePage.css';
-import joeyThinking from '../assets/mascot/PrismJoey_Mascot_Thinking Pose.png'; // Import joey thinking mascot
+import joeyThinking from '../assets/mascot/PrismJoey_Mascot_Thinking Pose.png';
+import {
+  usePracticeStore,
+  usePracticeSession,
+  usePracticeQuestion,
+  usePracticeAnswer,
+  usePracticeProgress,
+  usePracticeUI,
+  usePracticeHelp,
+} from '../stores';
 
 const PracticePage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  console.log(
-    '[PracticePage] Initial location.state:',
-    JSON.stringify(location.state)
+  const startSession = usePracticeStore((state) => state.startSession);
+  const endSession = usePracticeStore((state) => state.endSession);
+  const setError = usePracticeStore((state) => state.setError);
+  const loadNextQuestion = usePracticeStore((state) => state.loadNextQuestion);
+  const setCurrentAnswerAction = usePracticeStore(
+    (state) => state.setCurrentAnswer
   );
-  console.log('[PracticePage] URL search params:', location.search);
+  const submitCurrentAnswer = usePracticeStore(
+    (state) => state.submitCurrentAnswer
+  );
+  const setColumnarResultDigits = usePracticeStore(
+    (state) => state.setColumnarResultDigits
+  );
+  const setColumnarOperandDigits = usePracticeStore(
+    (state) => state.setColumnarOperandDigits
+  );
+  const setActiveColumnarInput = usePracticeStore(
+    (state) => state.setActiveColumnarInput
+  );
+  const updateColumnarDigit = usePracticeStore(
+    (state) => state.updateColumnarDigit
+  );
+  const clearColumnarInputs = usePracticeStore(
+    (state) => state.clearColumnarInputs
+  );
+  const findNextFocusableInput = usePracticeStore(
+    (state) => state.findNextFocusableInput
+  );
+  const requestHelp = usePracticeStore((state) => state.requestHelp);
+  const retryHelp = usePracticeStore((state) => state.retryHelp);
+  const hideHelp = usePracticeStore((state) => state.hideHelp);
+  const requestVoiceHelp = usePracticeStore((state) => state.requestVoiceHelp);
 
-  // Check URL parameters for testing fallback
+  const storeSessionId = usePracticeStore((state) => state.sessionId);
+  const storeIsLoading = usePracticeStore((state) => state.isLoading);
+
+  const {
+    question: currentQuestion,
+    questionNumber,
+    totalQuestions,
+    animationKey: questionAnimationKey,
+  } = usePracticeQuestion();
+
+  const {
+    currentAnswer,
+    columnarResultDigits,
+    columnarOperandDigits,
+    activeColumnarInput,
+    isAnswerSubmitted,
+  } = usePracticeAnswer();
+
+  const { score } = usePracticeProgress();
+  const { error, feedback } = usePracticeUI();
+  const { isSessionOver } = usePracticeSession();
+  const { help, voiceHelp } = usePracticeHelp();
+
+  const difficultyLevelIdFromState = location.state
+    ?.difficultyLevelId as number;
+  const difficultyNameFromState = location.state?.difficultyName as string;
+
   const urlParams = new URLSearchParams(location.search);
   const difficultyIdFromUrl = urlParams.get('difficultyId');
   const totalQuestionsFromUrl = urlParams.get('totalQuestions');
   const difficultyNameFromUrl = urlParams.get('difficultyName');
-  const isTestMode = urlParams.get('testMode') === 'true';
 
-  console.log('[PracticePage] URL parameters:', {
-    difficultyId: difficultyIdFromUrl,
-    totalQuestions: totalQuestionsFromUrl,
-    difficultyName: difficultyNameFromUrl,
-    testMode: isTestMode,
-  });
-
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
-  const [currentAnswer, setCurrentAnswer] = useState<string>('');
-  // State for columnar answer parts
-  const [columnarResultDigits, setColumnarResultDigits] = useState<
-    (number | null)[] | null
-  >(null);
-  const [columnarOperandDigits, setColumnarOperandDigits] = useState<
-    (number | null)[][] | null
-  >(null);
-  const [activeColumnarInput, setActiveColumnarInput] = useState<{
-    type: 'operand' | 'result';
-    rowIndex?: number;
-    digitIndex: number;
-  } | null>(null);
-  const [feedback, setFeedback] = useState<{
-    isCorrect: boolean | null;
-    message: string;
-    correctAnswer?: number;
-    show: boolean;
-  }>({ isCorrect: null, message: '', correctAnswer: undefined, show: false });
-
-  // Help-related state
-  const [helpData, setHelpData] = useState<HelpResponse | null>(null);
-  const [isHelpVisible, setIsHelpVisible] = useState<boolean>(false);
-  const [isLoadingHelp, setIsLoadingHelp] = useState<boolean>(false);
-  const [helpError, setHelpError] = useState<{
-    type: 'network' | 'server' | 'llm' | 'unknown';
-    message: string;
-    canRetry: boolean;
-  } | null>(null);
-  const [helpRetryCount, setHelpRetryCount] = useState<number>(0);
-
-  // Voice help state
-  const [isLoadingVoiceHelp, setIsLoadingVoiceHelp] = useState<boolean>(false);
-  const [voiceHelpError, setVoiceHelpError] = useState<string | null>(null);
-
-  // Ref to track auto-retry timeout
-  const helpRetryTimeoutRef = useRef<number | null>(null);
-
-  const [score, setScore] = useState<number>(0);
-  const [questionNumber, setQuestionNumber] = useState<number>(0);
-  const [totalQuestions, setTotalQuestions] = useState<number>(0);
-
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isSessionOver, setIsSessionOver] = useState<boolean>(false);
-  const [isAnswerSubmitted, setIsAnswerSubmitted] = useState<boolean>(false);
-  const [questionAnimationKey, setQuestionAnimationKey] = useState<number>(0); // For animation trigger
-  const [sessionDataForSummary, setSessionDataForSummary] =
-    useState<PracticeSession | null>(null);
-
-  const difficultyLevelIdFromState = location.state
-    ?.difficultyLevelId as number;
-  const difficultyNameFromState = location.state?.difficultyName as string; // Optional: for display
-
-  // For testing environments, also check URL parameters
   const effectiveDifficultyLevelId =
     difficultyLevelIdFromState ||
     (difficultyIdFromUrl ? parseInt(difficultyIdFromUrl, 10) : undefined);
@@ -114,1267 +95,269 @@ const PracticePage: React.FC = () => {
   const effectiveDifficultyName =
     difficultyNameFromState || difficultyNameFromUrl || undefined;
 
-  console.log('[PracticePage] Derived values:', {
-    difficultyLevelIdFromState,
-    effectiveDifficultyLevelId,
-    effectiveTotalQuestions,
-    effectiveDifficultyName,
-    isTestMode,
+  console.log('[PracticePage] Component Render. Effective values:', {
+    difficultyLevelId: effectiveDifficultyLevelId,
+    totalQuestions: effectiveTotalQuestions,
+    storeSessionId,
+    storeIsLoading,
   });
 
-  const findNextFocusable = (
-    currentOperands: (number | null)[][],
-    currentResult: (number | null)[],
-    sourceType: 'operand' | 'result',
-    sourceRowIndex?: number,
-    sourceDigitIndex?: number
-  ) => {
-    if (
-      sourceType === 'operand' &&
-      sourceRowIndex !== undefined &&
-      sourceDigitIndex !== undefined
-    ) {
-      for (
-        let i = sourceDigitIndex + 1;
-        i < currentOperands[sourceRowIndex].length;
-        i++
-      ) {
-        if (currentOperands[sourceRowIndex][i] === null) {
-          setActiveColumnarInput({
-            type: 'operand',
-            rowIndex: sourceRowIndex,
-            digitIndex: i,
-          });
-          return;
-        }
-      }
-      for (let r = sourceRowIndex + 1; r < currentOperands.length; r++) {
-        for (let d = 0; d < currentOperands[r].length; d++) {
-          if (currentOperands[r][d] === null) {
-            setActiveColumnarInput({
-              type: 'operand',
-              rowIndex: r,
-              digitIndex: d,
-            });
-            return;
-          }
-        }
-      }
-    }
-    const startIndex =
-      sourceType === 'result' && sourceDigitIndex !== undefined
-        ? sourceDigitIndex + 1
-        : 0;
-    for (let i = startIndex; i < currentResult.length; i++) {
-      if (currentResult[i] === null) {
-        setActiveColumnarInput({ type: 'result', digitIndex: i });
-        return;
-      }
-    }
-    setActiveColumnarInput(null);
-  };
-
-  const handleStartSession = useCallback(async () => {
+  useEffect(() => {
     console.log(
-      '[PracticePage handleStartSession] Called. difficultyLevelIdFromState:',
-      difficultyLevelIdFromState
+      `[PracticePage] Session Init Effect. Effective Difficulty ID: ${effectiveDifficultyLevelId}, Existing Session ID: ${storeSessionId}, IsLoading: ${storeIsLoading}`
     );
 
-    // Check for effective state values from the useEffect (for testing resilience)
-    const effectiveState = (
-      window as Window & {
-        __practicePageEffectiveState?: {
-          difficultyLevelId: number;
-          totalQuestions: number;
-          difficultyName?: string;
-        };
-      }
-    ).__practicePageEffectiveState;
-
-    const finalDifficultyLevelId =
-      effectiveState?.difficultyLevelId || difficultyLevelIdFromState;
-    const finalTotalQuestions =
-      effectiveState?.totalQuestions || location.state?.totalQuestions || 10;
-
-    console.log('[PracticePage handleStartSession] Using final values:', {
-      difficultyLevelId: finalDifficultyLevelId,
-      totalQuestions: finalTotalQuestions,
-      fromEffectiveState: !!effectiveState,
-    });
-
-    if (!finalDifficultyLevelId) {
-      setError('未选择难度级别。请返回并选择一个难度。');
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const sessionData = await startPracticeSession(
-        finalDifficultyLevelId,
-        finalTotalQuestions
-      );
-      setSessionId(sessionData.id);
-      setTotalQuestions(sessionData.total_questions_planned);
-      setScore(sessionData.score); // Should be 0 initially
-      // Fetch the first question
-      const firstQuestion = await getNextQuestion(sessionData.id);
-      setCurrentQuestion(firstQuestion);
-      setQuestionAnimationKey((prevKey) => prevKey + 1); // Trigger animation
-      setQuestionNumber(1); // Start with question 1
-      setIsLoading(false);
-      setError(null);
-
-      // Clean up the temporary effective state
-      if (effectiveState) {
-        delete (
-          window as Window & {
-            __practicePageEffectiveState?: {
-              difficultyLevelId: number;
-              totalQuestions: number;
-              difficultyName?: string;
-            };
-          }
-        ).__practicePageEffectiveState;
-      }
-    } catch (err) {
-      console.error('Error starting session or fetching first question:', err);
-      setError('开始练习或获取题目失败，请稍后再试。');
-      setIsLoading(false);
-    }
-  }, [difficultyLevelIdFromState, location.state]);
-
-  useEffect(() => {
-    console.log('[PracticePage useEffect] Running with effective values:', {
-      effectiveDifficultyLevelId,
-      effectiveTotalQuestions,
-      effectiveDifficultyName,
-      sessionId,
-      isTestMode,
-    });
-
-    if (!sessionId && effectiveDifficultyLevelId) {
-      console.log(
-        '[PracticePage useEffect] Condition met, calling handleStartSession.'
-      );
-      // Store the effective values for handleStartSession to use
-      (
-        window as Window & {
-          __practicePageEffectiveState?: {
-            difficultyLevelId: number;
-            totalQuestions: number;
-            difficultyName?: string;
-          };
+    if (effectiveDifficultyLevelId && !storeSessionId && !storeIsLoading) {
+      const initializeSession = async () => {
+        console.log(
+          `[PracticePage] Condition met: Attempting to start session. Current isLoading: ${usePracticeStore.getState().isLoading}`
+        );
+        try {
+          await startSession(
+            effectiveDifficultyLevelId,
+            effectiveTotalQuestions
+          );
+          console.log(
+            '[PracticePage] startSession call completed. New Session ID (from store check): ',
+            usePracticeStore.getState().sessionId,
+            'isLoading (from store check):',
+            usePracticeStore.getState().isLoading
+          );
+        } catch (err) {
+          console.error(
+            '[PracticePage] Failed to start session from useEffect:',
+            err
+          );
+          setError('启动练习失败，请重试。');
         }
-      ).__practicePageEffectiveState = {
-        difficultyLevelId: effectiveDifficultyLevelId,
-        totalQuestions: effectiveTotalQuestions,
-        difficultyName: effectiveDifficultyName,
       };
-      handleStartSession();
-    } else if (!effectiveDifficultyLevelId && !sessionId) {
+      initializeSession();
+    } else if (storeIsLoading) {
       console.log(
-        '[PracticePage useEffect] Condition for error met (no difficulty and no session).'
+        '[PracticePage] Session initialization in progress or component is generally loading.'
       );
-      setError('未指定练习参数，请从主页开始。');
-      setIsLoading(false);
+    } else if (storeSessionId) {
+      console.log('[PracticePage] Session already exists. ID:', storeSessionId);
+    } else if (!effectiveDifficultyLevelId) {
+      console.log('[PracticePage] No effective difficulty level ID provided.');
+      // setError('请提供有效的难度级别ID。'); // Optional: set error if this state is unexpected
     }
-    // Cleanup help retry timeout on unmount or when dependencies change
+
+    // Cleanup function: This will run when the component unmounts,
+    // or IF effectiveDifficultyLevelId/effectiveTotalQuestions change.
     return () => {
-      if (helpRetryTimeoutRef.current) {
-        window.clearTimeout(helpRetryTimeoutRef.current);
-        helpRetryTimeoutRef.current = null;
-      }
+      console.log(
+        '[PracticePage] useEffect cleanup triggered. Current path:',
+        location.pathname
+      );
+      // For now, let's limit resetSession to explicit exit or full unmount.
+      // The `handleExitPractice` already calls `endSession`.
+      // If `endSession` is not enough, `resetSession` could be called there,
+      // or in a dedicated unmount effect if really needed.
+      // Removing the automatic resetSession() from *this* effect's cleanup to break the loop.
+      console.log(
+        '[PracticePage] Cleanup: For now, not calling resetSession() here to prevent loops. Session end/reset should be handled by navigation or explicit actions.'
+      );
     };
   }, [
-    sessionId,
     effectiveDifficultyLevelId,
     effectiveTotalQuestions,
-    effectiveDifficultyName,
-    handleStartSession,
-    isTestMode,
+    storeSessionId, // Still needed to react to session being set/unset
+    storeIsLoading, // Added back to ensure the !storeIsLoading check is robust
+    startSession, // Action, should be stable
+    setError, // Action, should be stable
+    // resetSession is removed from deps as it's not directly called by the effect body
   ]);
 
-  // Auto-focus first available input for columnar questions
-  useEffect(() => {
+  // Handle keypad input for regular questions
+  const handleKeypadDigit = useCallback(
+    (digit: string) => {
+      console.log('[PracticePage] handleKeypadDigit called with:', digit);
+      console.log(
+        '[PracticePage] currentQuestion?.question_type:',
+        currentQuestion?.question_type
+      );
+      console.log('[PracticePage] currentAnswer before:', currentAnswer);
+      if (currentQuestion?.question_type !== 'columnar') {
+        setCurrentAnswerAction(currentAnswer + digit);
+        console.log(
+          '[PracticePage] setCurrentAnswerAction called with:',
+          currentAnswer + digit
+        );
+      } else {
+        console.log(
+          '[PracticePage] Skipping digit input - question is columnar type'
+        );
+      }
+    },
+    [currentAnswer, currentQuestion?.question_type, setCurrentAnswerAction]
+  );
+
+  // Handle clear for regular questions
+  const handleKeypadClear = useCallback(() => {
+    if (currentQuestion?.question_type !== 'columnar') {
+      setCurrentAnswerAction('');
+    }
+  }, [currentQuestion?.question_type, setCurrentAnswerAction]);
+
+  // Handle answer submission for regular questions
+  const handleSubmitAnswer = useCallback(async () => {
     if (
-      currentQuestion?.question_type === 'columnar' &&
-      !activeColumnarInput && // Only if no input is active yet for this question
-      !isAnswerSubmitted
+      !currentAnswer.trim() ||
+      currentQuestion?.question_type === 'columnar'
     ) {
-      // Ensure columnar states are initialized for the new question
-      // This helps in reliably determining which slots are empty original placeholders
-      const initialOperands = currentQuestion.columnar_operands
-        ? currentQuestion.columnar_operands.map((row) =>
-            row.map((d) => (d === undefined ? null : d))
-          )
-        : [];
-      const initialResult = currentQuestion.columnar_result_placeholders
-        ? currentQuestion.columnar_result_placeholders.map((d) =>
-            d === undefined ? null : d
-          )
-        : [];
+      return;
+    }
 
-      // Set these states if they are null (i.e., new question just loaded)
-      // This helps ensure that subsequent logic (like clearing) starts with a clean slate.
-      if (columnarOperandDigits === null && currentQuestion.columnar_operands) {
-        setColumnarOperandDigits(initialOperands);
-      }
-      if (
-        columnarResultDigits === null &&
-        currentQuestion.columnar_result_placeholders
-      ) {
-        setColumnarResultDigits(initialResult);
-      }
-
-      // Find first available *original* operand input placeholder
-      if (currentQuestion.columnar_operands) {
-        for (
-          let rowIndex = 0;
-          rowIndex < currentQuestion.columnar_operands.length;
-          rowIndex++
-        ) {
-          for (
-            let digitIndex = 0;
-            digitIndex < currentQuestion.columnar_operands[rowIndex].length;
-            digitIndex++
-          ) {
-            // Check if this slot in the *original question data* was a placeholder
-            if (
-              currentQuestion.columnar_operands[rowIndex][digitIndex] === null
-            ) {
-              setActiveColumnarInput({ type: 'operand', rowIndex, digitIndex });
-              return; // Focus set, exit
-            }
-          }
-        }
-      }
-
-      // If no operand inputs, try *original* result input placeholders
-      if (currentQuestion.columnar_result_placeholders) {
-        for (
-          let digitIndex = 0;
-          digitIndex < currentQuestion.columnar_result_placeholders.length;
-          digitIndex++
-        ) {
-          // Check if this slot in the *original question data* was a placeholder
-          if (
-            currentQuestion.columnar_result_placeholders[digitIndex] === null
-          ) {
-            setActiveColumnarInput({ type: 'result', digitIndex });
-            return; // Focus set, exit
-          }
-        }
-      }
+    try {
+      await submitCurrentAnswer();
+    } catch (err) {
+      console.error('[PracticePage] Failed to submit answer:', err);
+      setError('提交答案失败，请重试');
     }
   }, [
-    currentQuestion,
-    activeColumnarInput,
-    isAnswerSubmitted,
-    columnarOperandDigits,
-    columnarResultDigits,
+    currentAnswer,
+    currentQuestion?.question_type,
+    submitCurrentAnswer,
+    setError,
   ]);
 
-  const handleKeypadDigit = (digit: string) => {
-    if (currentAnswer.length < 5) {
-      // Limit answer length
-      setCurrentAnswer((prev) => prev + digit);
-    }
-  };
-
-  const handleKeypadClear = () => {
-    setCurrentAnswer('');
-  };
-
-  const handleSubmitAnswer = async () => {
-    if (!sessionId || !currentQuestion || currentAnswer === '') return;
-    setIsLoading(true); // For submission
-    setIsAnswerSubmitted(true); // Disable keypad, show next button
-
+  // Handle next question
+  const handleNextQuestion = useCallback(async () => {
     try {
-      const answerNum = parseInt(currentAnswer, 10);
-      const payload: AnswerPayload = {
-        session_id: sessionId,
-        question_id: currentQuestion.id,
-        user_answer: answerNum,
-        // time_spent: /* Implement timer if needed */,
-      };
-      const resultQuestion = await submitAnswer(payload);
+      await loadNextQuestion();
+    } catch (err) {
+      console.error('[PracticePage] Failed to load next question:', err);
+      setError('加载下一题失败，请重试');
+    }
+  }, [loadNextQuestion, setError]);
 
-      setFeedback({
-        isCorrect: resultQuestion.is_correct ?? false,
-        message: resultQuestion.is_correct ? '答对了！🎉' : '再想想哦 🤔',
-        correctAnswer: resultQuestion.is_correct
-          ? undefined
-          : resultQuestion.correct_answer,
-        show: true,
+  // Handle exit practice
+  const handleExitPractice = useCallback(() => {
+    endSession();
+    navigate(-1);
+  }, [endSession, navigate]);
+
+  // Columnar calculation handlers
+  const handleColumnarAnswerChange = useCallback(
+    (
+      answerString: string,
+      operandsWithBlanks: (number | null)[][],
+      resultDigits: (number | null)[]
+    ) => {
+      setCurrentAnswerAction(answerString);
+      setColumnarOperandDigits(operandsWithBlanks);
+      setColumnarResultDigits(resultDigits);
+    },
+    [setCurrentAnswerAction, setColumnarOperandDigits, setColumnarResultDigits]
+  );
+
+  const handleColumnarInputFocus = useCallback(
+    (type: 'operand' | 'result', digitIndex: number, rowIndex?: number) => {
+      console.log('[PracticePage] handleColumnarInputFocus called with:', {
+        type,
+        digitIndex,
+        rowIndex,
       });
+      setActiveColumnarInput({ type, digitIndex, rowIndex });
+    },
+    [setActiveColumnarInput]
+  );
 
-      if (resultQuestion.is_correct) {
-        setScore((prev) => prev + 1);
-      }
-      setCurrentQuestion(resultQuestion); // Update question with answer details
-      setIsLoading(false);
+  const handleColumnarKeypadDigit = useCallback(
+    (digit: string) => {
+      console.log(
+        '[PracticePage] handleColumnarKeypadDigit called with:',
+        digit
+      );
+      console.log(
+        '[PracticePage] currentQuestion?.question_type:',
+        currentQuestion?.question_type
+      );
+      console.log('[PracticePage] activeColumnarInput:', activeColumnarInput);
 
-      // Check if this was the last question
-      if (questionNumber >= totalQuestions) {
-        setIsSessionOver(true);
-        // Fetch summary data
-        if (sessionId) {
-          // ensure sessionId is available
-          const summaryData = await getPracticeSummary(sessionId);
-          setSessionDataForSummary(summaryData);
-        }
-      }
-    } catch (err) {
-      console.error('Error submitting answer:', err);
-      setError('提交答案失败，请检查网络连接。');
-      setFeedback({ isCorrect: null, message: '提交失败!', show: true });
-      setIsLoading(false);
-    }
-  };
-
-  const handleNextQuestion = async () => {
-    if (!sessionId || isSessionOver) return;
-
-    // Hide old feedback immediately
-    setFeedback((prev) => ({ ...prev, show: false }));
-
-    // If it was the last question, based on the counter
-    if (questionNumber >= totalQuestions && sessionId) {
-      // Ensure sessionId is present
-      setIsSessionOver(true);
-      setIsLoading(true); // Show loading while fetching summary
-      try {
-        const summaryData = await getPracticeSummary(sessionId);
-        setSessionDataForSummary(summaryData);
-        setIsLoading(false);
-      } catch (summaryError) {
-        console.error('Error fetching summary data:', summaryError);
-        setError('无法加载练习总结。');
-        setIsLoading(false);
-      }
-      return; // Stop further execution as session is over
-    }
-
-    setIsLoading(true);
-    setCurrentAnswer('');
-    setIsAnswerSubmitted(false); // Re-enable keypad
-    setActiveColumnarInput(null); // Reset active input for new question
-    setColumnarOperandDigits(null); // Reset columnar operand state
-    setColumnarResultDigits(null); // Reset columnar result state
-
-    try {
-      const nextQ = await getNextQuestion(sessionId);
-      setCurrentQuestion(nextQ);
-      setQuestionAnimationKey((prevKey) => prevKey + 1); // Trigger animation
-      setQuestionNumber((prev) => prev + 1);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching next question:', err);
-      // If error is because session is over (e.g., backend says no more questions)      // Define a type guard for the error response
-      const isAxiosError = (
-        error: unknown
-      ): error is { response?: { data?: { detail?: string } } } => {
-        return (
-          typeof error === 'object' && error !== null && 'response' in error
+      if (
+        currentQuestion?.question_type === 'columnar' &&
+        activeColumnarInput
+      ) {
+        const digitValue = parseInt(digit, 10);
+        console.log('[PracticePage] Calling updateColumnarDigit with:', {
+          digitValue,
+          type: activeColumnarInput.type,
+          digitIndex: activeColumnarInput.digitIndex,
+          rowIndex: activeColumnarInput.rowIndex,
+        });
+        updateColumnarDigit(
+          digitValue,
+          activeColumnarInput.type,
+          activeColumnarInput.digitIndex,
+          activeColumnarInput.rowIndex
         );
-      };
-
-      if (
-        isAxiosError(err) &&
-        err.response?.data?.detail?.includes(
-          'All planned questions have been answered'
-        )
-      ) {
-        setIsSessionOver(true);
-        navigate('/summary', { state: { sessionId: sessionId } });
+        findNextFocusableInput();
       } else {
-        setError('获取下一题失败。');
+        console.log(
+          '[PracticePage] Not calling updateColumnarDigit - conditions not met'
+        );
       }
-    } finally {
-      setIsLoading(false);
-      // Ensure feedback is hidden if it wasn't already by a state update
-      setFeedback({
-        isCorrect: null,
-        message: '',
-        correctAnswer: undefined,
-        show: false,
-      });
+    },
+    [
+      currentQuestion?.question_type,
+      activeColumnarInput,
+      updateColumnarDigit,
+      findNextFocusableInput,
+    ]
+  );
+
+  const handleColumnarKeypadClear = useCallback(() => {
+    if (currentQuestion?.question_type === 'columnar') {
+      clearColumnarInputs();
     }
-  };
+  }, [currentQuestion?.question_type, clearColumnarInputs]);
 
-  const handleExitPractice = () => {
-    // Optional: Call an API to invalidate session if needed
-    navigate('/difficulty-selection');
-  };
-
-  if (!effectiveDifficultyLevelId) {
-    return (
-      <div className="practice-container error-container">
-        <h1>错误</h1>
-        <p>未指定练习难度。请返回并选择一个难度级别。</p>
-        <button
-          onClick={() => navigate('/difficulty-selection')}
-          className="control-button button-interactive"
-        >
-          选择难度
-        </button>
-      </div>
-    );
-  }
-  if (isLoading && !currentQuestion && !isSessionOver)
-    return <div className="loading-message">正在准备练习...</div>; // Initial load, not for summary loading
-  if (error && !isSessionOver)
-    return (
-      <div className="error-message">
-        {error}{' '}
-        <button
-          onClick={handleExitPractice}
-          className="control-button button-interactive"
-        >
-          退出练习
-        </button>
-      </div>
-    ); // Error during practice
-
-  const handlePracticeAgain = () => {
-    // Reset all relevant states to start a new session with the same difficulty
-    setSessionId(null);
-    setCurrentQuestion(null);
-    setCurrentAnswer('');
-    setColumnarOperandDigits(null);
-    setColumnarResultDigits(null);
-    setActiveColumnarInput(null);
-    setFeedback({ isCorrect: null, message: '', show: false });
-    setScore(0);
-    setQuestionNumber(0);
-    // totalQuestions remains the same or could be re-fetched if settings change
-    setIsLoading(true);
-    setError(null);
-    setIsSessionOver(false);
-    setIsAnswerSubmitted(false);
-    setQuestionAnimationKey(0); // Reset animation
-    setSessionDataForSummary(null);
-
-    // Restart the session (which will fetch new questions)
-    handleStartSession();
-  };
-
-  if (isSessionOver) {
-    if (isLoading)
-      return <div className="loading-message">正在加载总结...</div>; // Loading state for summary
-    if (error)
-      return (
-        <div className="error-message">
-          {error}{' '}
-          <button
-            onClick={() => navigate('/')}
-            className="control-button button-interactive"
-          >
-            返回主页
-          </button>
-        </div>
-      ); // Error loading summary
-    if (!sessionDataForSummary)
-      return <div className="loading-message">总结数据准备中...</div>;
-
-    const totalQs =
-      sessionDataForSummary.total_questions_planned ||
-      sessionDataForSummary.questions.length;
-    const accuracy =
-      totalQs > 0
-        ? ((sessionDataForSummary.score / totalQs) * 100).toFixed(0)
-        : '0';
-    let durationStr = 'N/A';
-
-    if (sessionDataForSummary.start_time && sessionDataForSummary.end_time) {
+  const handleSubmitColumnarAnswer = useCallback(async () => {
+    if (currentQuestion?.question_type === 'columnar') {
       try {
-        const startTime = new Date(sessionDataForSummary.start_time);
-        const endTime = new Date(sessionDataForSummary.end_time);
-        if (!isNaN(startTime.getTime()) && !isNaN(endTime.getTime())) {
-          const durationMs = endTime.getTime() - startTime.getTime();
-          if (durationMs >= 0) {
-            const minutes = Math.floor(durationMs / 60000);
-            const seconds = Math.floor((durationMs % 60000) / 1000);
-            durationStr = `${minutes}分 ${seconds}秒`;
-          } else {
-            durationStr = '时间记录错误';
-          }
-        } else {
-          durationStr = '时间格式无效';
-        }
-      } catch (e) {
-        console.error('Error parsing time:', e);
-        durationStr = '时间计算出错';
+        await submitCurrentAnswer();
+      } catch (err) {
+        console.error('[PracticePage] Failed to submit columnar answer:', err);
+        setError('提交答案失败，请重试');
       }
     }
+  }, [currentQuestion?.question_type, submitCurrentAnswer, setError]);
 
-    let encouragingMessage = '继续努力，下次会更好！💪';
-    if (parseFloat(accuracy) >= 80) {
-      encouragingMessage = '太棒了！你真是个数学小天才！🎉';
-    } else if (parseFloat(accuracy) >= 60) {
-      encouragingMessage = '做得不错！继续加油哦！🚀';
+  // Help handlers
+  const handleHelpButtonClick = useCallback(() => {
+    if (help.isVisible) {
+      hideHelp();
+    } else {
+      requestHelp();
     }
+  }, [help.isVisible, hideHelp, requestHelp]);
 
-    return (
-      <div className="practice-summary-overlay">
-        <div className="practice-summary-card">
-          <h2>练习总结</h2>
-          {effectiveDifficultyName && (
-            <p className="summary-difficulty">
-              难度：<span>{effectiveDifficultyName}</span>
-            </p>
-          )}
-          <div className="summary-stats-grid">
-            <p>
-              总题数：<span>{totalQs}</span>
-            </p>
-            <p>
-              答对题数：<span>{sessionDataForSummary.score}</span>
-            </p>
-            <p>
-              答错题数：<span>{totalQs - sessionDataForSummary.score}</span>
-            </p>
-            <p>
-              正确率：<span>{accuracy}%</span>
-            </p>
-            <p>
-              用时：<span>{durationStr}</span>
-            </p>
-          </div>
-          <p className="encouraging-message">{encouragingMessage}</p>
-          <div className="summary-actions">
-            <button
-              onClick={handlePracticeAgain}
-              className="control-button button-interactive summary-button-again"
-            >
-              再练一次
-            </button>
-            <button
-              onClick={() => navigate('/difficulty-selection')}
-              className="control-button button-interactive summary-button-select"
-            >
-              选择其他难度
-            </button>
-            <button
-              onClick={() => navigate('/')}
-              className="control-button button-interactive summary-button-home"
-            >
-              返回主页
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleRetryHelp = useCallback(() => {
+    retryHelp();
+  }, [retryHelp]);
 
-  if (!currentQuestion)
-    return <div className="loading-message">题目加载中...</div>; // Should be brief
-
-  const handleColumnarAnswerChange = (
-    answerString: string,
-    operandsWithBlanks: (number | null)[][],
-    resultDigits: (number | null)[]
-  ) => {
-    setCurrentAnswer(answerString);
-    setColumnarOperandDigits(operandsWithBlanks);
-    setColumnarResultDigits(resultDigits);
-
-    // Auto-focus first available input if none is currently active
-    if (
-      !activeColumnarInput &&
-      currentQuestion &&
-      currentQuestion.question_type === 'columnar'
-    ) {
-      // Check if currentQuestion.columnar_operands and currentQuestion.columnar_result_placeholders exist
-      const operands = currentQuestion.columnar_operands;
-      const resultPlaceholders = currentQuestion.columnar_result_placeholders;
-
-      // Find first available operand input
-      if (operands) {
-        for (let rowIndex = 0; rowIndex < operands.length; rowIndex++) {
-          for (
-            let digitIndex = 0;
-            digitIndex < operands[rowIndex].length;
-            digitIndex++
-          ) {
-            if (operands[rowIndex][digitIndex] === null) {
-              // Check if this input is already filled by the user recently
-              if (
-                !columnarOperandDigits ||
-                columnarOperandDigits[rowIndex]?.[digitIndex] === null
-              ) {
-                setActiveColumnarInput({
-                  type: 'operand',
-                  rowIndex,
-                  digitIndex,
-                });
-                return;
-              }
-            }
-          }
-        }
-      }
-
-      // If no operand inputs, try result inputs
-      if (resultPlaceholders) {
-        for (
-          let digitIndex = 0;
-          digitIndex < resultPlaceholders.length;
-          digitIndex++
-        ) {
-          if (resultPlaceholders[digitIndex] === null) {
-            // Check if this input is already filled by the user recently
-            if (
-              !columnarResultDigits ||
-              columnarResultDigits[digitIndex] === null
-            ) {
-              setActiveColumnarInput({ type: 'result', digitIndex });
-              return;
-            }
-          }
-        }
-      }
-    }
-  };
-
-  const handleColumnarInputFocus = (
-    type: 'operand' | 'result',
-    digitIndex: number,
-    rowIndex?: number
-  ) => {
-    setActiveColumnarInput({ type, digitIndex, rowIndex });
-  };
-
-  const handleColumnarKeypadDigit = (digit: string) => {
-    if (isAnswerSubmitted || !currentQuestion) return;
-
-    const currentOperandDigitsState = columnarOperandDigits
-      ? columnarOperandDigits.map((row) => [...row])
-      : currentQuestion.columnar_operands
-        ? currentQuestion.columnar_operands.map((row) => [...row])
-        : [];
-    const currentResultDigitsState = columnarResultDigits
-      ? [...columnarResultDigits]
-      : currentQuestion.columnar_result_placeholders
-        ? [...currentQuestion.columnar_result_placeholders]
-        : [];
-
-    let changed = false;
-    if (activeColumnarInput) {
-      const digitValue = parseInt(digit, 10);
-      if (activeColumnarInput.type === 'operand') {
-        const { rowIndex, digitIndex } = activeColumnarInput;
-        if (
-          rowIndex !== undefined &&
-          currentOperandDigitsState[rowIndex] &&
-          currentOperandDigitsState[rowIndex][digitIndex] === null
-        ) {
-          currentOperandDigitsState[rowIndex][digitIndex] = digitValue;
-          changed = true;
-          findNextFocusable(
-            currentOperandDigitsState,
-            currentResultDigitsState,
-            'operand',
-            rowIndex,
-            digitIndex
-          );
-        }
-      } else if (activeColumnarInput.type === 'result') {
-        const { digitIndex } = activeColumnarInput;
-        if (currentResultDigitsState[digitIndex] === null) {
-          currentResultDigitsState[digitIndex] = digitValue;
-          changed = true;
-          findNextFocusable(
-            currentOperandDigitsState,
-            currentResultDigitsState,
-            'result',
-            undefined,
-            digitIndex
-          );
-        }
-      }
-    }
-
-    if (changed) {
-      const operandStrings = currentOperandDigitsState.map((row) =>
-        row.map((d) => (d !== null ? d.toString() : '')).join('')
-      );
-      const resultString = currentResultDigitsState
-        .map((d) => (d !== null ? d.toString() : ''))
-        .join('');
-      const combinedAnswer = `${operandStrings.join('|')}=${resultString}`;
-
-      handleColumnarAnswerChange(
-        combinedAnswer,
-        currentOperandDigitsState,
-        currentResultDigitsState
-      );
-    }
-  };
-
-  const handleColumnarKeypadClear = () => {
-    if (isAnswerSubmitted || !currentQuestion) return;
-
-    // Create fresh copies from current state or initialize from question structure
-    // Ensure these are always full arrays matching the question structure.
-    const currentOperands = columnarOperandDigits
-      ? columnarOperandDigits.map((row) => [...row])
-      : currentQuestion.columnar_operands
-        ? currentQuestion.columnar_operands.map((row) =>
-            row.map((d) => (d === undefined ? null : d))
-          )
-        : [];
-    const currentResult = columnarResultDigits
-      ? [...columnarResultDigits]
-      : currentQuestion.columnar_result_placeholders
-        ? currentQuestion.columnar_result_placeholders.map((d) =>
-            d === undefined ? null : d
-          )
-        : [];
-
-    // Ensure currentOperands and currentResult have the correct structure if derived from question
-    // This is critical if columnarOperandDigits/columnarResultDigits were null initially
-    if (
-      currentQuestion.columnar_operands &&
-      currentOperands.length !== currentQuestion.columnar_operands.length
-    ) {
-      // Re-initialize from question to be safe
-      currentQuestion.columnar_operands.forEach((qRow, rIdx) => {
-        if (!currentOperands[rIdx]) currentOperands[rIdx] = [];
-        qRow.forEach((_qDigit, dIdx) => {
-          if (currentOperands[rIdx][dIdx] === undefined)
-            currentOperands[rIdx][dIdx] = null;
-        });
-      });
-    }
-    if (
-      currentQuestion.columnar_result_placeholders &&
-      currentResult.length !==
-        currentQuestion.columnar_result_placeholders.length
-    ) {
-      currentQuestion.columnar_result_placeholders.forEach((_qDigit, dIdx) => {
-        if (currentResult[dIdx] === undefined) currentResult[dIdx] = null;
-      });
-    }
-
-    let clearedSomething = false;
-    let nextActiveInput = activeColumnarInput;
-
-    // 1. Try to clear the currently active input cell if it's filled
-    if (activeColumnarInput) {
-      if (
-        activeColumnarInput.type === 'operand' &&
-        activeColumnarInput.rowIndex !== undefined
-      ) {
-        const { rowIndex, digitIndex } = activeColumnarInput;
-        if (
-          currentOperands[rowIndex] &&
-          currentOperands[rowIndex][digitIndex] !== null
-        ) {
-          currentOperands[rowIndex][digitIndex] = null;
-          clearedSomething = true;
-          // Focus remains on this cell (nextActiveInput is already activeColumnarInput)
-        }
-      } else if (activeColumnarInput.type === 'result') {
-        const { digitIndex } = activeColumnarInput;
-        if (currentResult[digitIndex] !== null) {
-          currentResult[digitIndex] = null;
-          clearedSomething = true;
-          // Focus remains on this cell
-        }
-      }
-    }
-
-    // 2. If active input was empty or no active input, find the last filled item to clear
-    if (!clearedSomething) {
-      // Search result digits from right to left
-      for (let i = currentResult.length - 1; i >= 0; i--) {
-        if (
-          currentResult[i] !== null &&
-          currentQuestion.columnar_result_placeholders?.[i] === null
-        ) {
-          // Must be an original placeholder
-          currentResult[i] = null;
-          clearedSomething = true;
-          nextActiveInput = { type: 'result', digitIndex: i };
-          break;
-        }
-      }
-
-      if (!clearedSomething) {
-        // Search operand digits from last operand, right to left
-        for (let r = currentOperands.length - 1; r >= 0; r--) {
-          for (let d = (currentOperands[r]?.length || 0) - 1; d >= 0; d--) {
-            if (
-              currentOperands[r][d] !== null &&
-              currentQuestion.columnar_operands?.[r]?.[d] === null
-            ) {
-              // Must be an original placeholder
-              currentOperands[r][d] = null;
-              clearedSomething = true;
-              nextActiveInput = { type: 'operand', rowIndex: r, digitIndex: d };
-              break;
-            }
-          }
-          if (clearedSomething) break;
-        }
-      }
-    }
-
-    if (clearedSomething) {
-      setActiveColumnarInput(nextActiveInput); // Set focus to the (now empty) cell
-
-      const operandStrings = currentOperands.map((row) =>
-        row.map((d) => (d !== null ? d.toString() : '')).join('')
-      );
-      const resultString = currentResult
-        .map((d) => (d !== null ? d.toString() : ''))
-        .join('');
-      const combinedAnswer = `${operandStrings.join('|')}=${resultString}`;
-
-      handleColumnarAnswerChange(
-        combinedAnswer,
-        currentOperands,
-        currentResult
-      );
-    } else if (!activeColumnarInput) {
-      // If nothing was cleared and no active input, try to set focus to the first available original empty slot
-      // This mirrors the auto-focus logic from useEffect
-      if (currentQuestion.columnar_operands) {
-        for (let r = 0; r < currentQuestion.columnar_operands.length; r++) {
-          for (
-            let d = 0;
-            d < currentQuestion.columnar_operands[r].length;
-            d++
-          ) {
-            if (
-              currentQuestion.columnar_operands[r][d] === null &&
-              (currentOperands[r]?.[d] === null ||
-                currentOperands[r]?.[d] === undefined)
-            ) {
-              setActiveColumnarInput({
-                type: 'operand',
-                rowIndex: r,
-                digitIndex: d,
-              });
-              return;
-            }
-          }
-        }
-      }
-      if (currentQuestion.columnar_result_placeholders) {
-        for (
-          let i = 0;
-          i < currentQuestion.columnar_result_placeholders.length;
-          i++
-        ) {
-          if (
-            currentQuestion.columnar_result_placeholders[i] === null &&
-            (currentResult[i] === null || currentResult[i] === undefined)
-          ) {
-            setActiveColumnarInput({ type: 'result', digitIndex: i });
-            return;
-          }
-        }
-      }
-    }
-  };
-
-  const handleSubmitColumnarAnswer = async () => {
-    if (
-      !sessionId ||
-      !currentQuestion ||
-      !columnarOperandDigits ||
-      !columnarResultDigits
-    )
-      return;
-
-    const allOperandsFilled = columnarOperandDigits.every((row) =>
-      row.every((digit) => digit !== null)
-    );
-    const allResultFilled = columnarResultDigits.every(
-      (digit) => digit !== null
-    );
-
-    if (!allOperandsFilled || !allResultFilled) {
-      setFeedback({
-        isCorrect: null,
-        message: '请填写所有空白处！',
-        show: true,
-      });
-      setTimeout(() => {
-        setFeedback((prev) => ({ ...prev, show: false }));
-      }, 2000);
-      return;
-    }
-
-    setIsLoading(true);
-    setIsAnswerSubmitted(true);
-
-    const filledOperandsForPayload = columnarOperandDigits.map((row) =>
-      row.map((digit) => digit as number)
-    );
-    const filledResultForPayload = columnarResultDigits.map(
-      (digit) => digit as number
-    );
-
+  const handleVoiceHelpButtonClick = useCallback(async () => {
     try {
-      const payload: AnswerPayload = {
-        session_id: sessionId,
-        question_id: currentQuestion.id,
-        user_filled_operands: filledOperandsForPayload,
-        user_filled_result: filledResultForPayload,
-      };
-      const resultQuestion = await submitAnswer(payload);
-
-      setFeedback({
-        isCorrect: resultQuestion.is_correct ?? false,
-        message: resultQuestion.is_correct ? '答对了！🎉' : '再想想哦 🤔',
-        correctAnswer: undefined,
-        show: true,
-      });
-
-      if (resultQuestion.is_correct) {
-        setScore((prev) => prev + 1);
-      }
-
-      setIsLoading(false);
-
-      if (questionNumber >= totalQuestions) {
-        setIsSessionOver(true);
-        if (sessionId) {
-          const summaryData = await getPracticeSummary(sessionId);
-          setSessionDataForSummary(summaryData);
-        }
-      }
+      await requestVoiceHelp();
     } catch (err) {
-      console.error('Error submitting columnar answer:', err);
-      setError('提交答案失败，请检查网络连接。');
-      setFeedback({ isCorrect: null, message: '提交失败!', show: true });
-      setIsLoading(false);
+      console.error('[PracticePage] Voice help failed:', err);
     }
-  };
+  }, [requestVoiceHelp]);
 
-  // Enhanced Help functionality with comprehensive error handling
-  const handleRequestHelp = async (isRetry: boolean = false) => {
-    if (!sessionId || !currentQuestion) return;
+  const handleCloseHelp = useCallback(() => {
+    hideHelp();
+  }, [hideHelp]);
 
-    // Clear any existing retry timeout to prevent conflicts
-    if (helpRetryTimeoutRef.current) {
-      window.clearTimeout(helpRetryTimeoutRef.current);
-      helpRetryTimeoutRef.current = null;
-    }
-
-    // Clear previous error state when starting new request
-    if (!isRetry) {
-      setHelpError(null);
-      setHelpRetryCount(0);
-    }
-
-    // Always show the help box when starting a request
-    setIsHelpVisible(true);
-    setIsLoadingHelp(true);
-
-    try {
-      const helpResponse = await getQuestionHelp(sessionId, currentQuestion.id);
-
-      // Validate response structure
-      if (
-        !helpResponse.help_content ||
-        !helpResponse.thinking_process ||
-        !helpResponse.solution_steps
-      ) {
-        throw new Error('Invalid help response structure');
-      }
-
-      setHelpData(helpResponse);
-      setHelpError(null); // Clear any previous errors
-      setHelpRetryCount(0);
-    } catch (err: unknown) {
-      console.error('Error fetching help:', err);
-
-      const errorInfo = determineHelpErrorType(err);
-      setHelpError(errorInfo);
-
-      // Increment retry count
-      setHelpRetryCount((prev) => prev + 1);
-
-      // Show user-friendly feedback based on error type
-      if (errorInfo.type === 'network') {
-        setFeedback({
-          isCorrect: null,
-          message: '网络连接问题，请检查网络后重试',
-          show: true,
-        });
-      } else if (errorInfo.type === 'server') {
-        setFeedback({
-          isCorrect: null,
-          message: '服务器暂时繁忙，请稍后重试',
-          show: true,
-        });
-      } else if (errorInfo.type === 'llm') {
-        setFeedback({
-          isCorrect: null,
-          message: 'AI助手暂时不可用，将为您提供基础帮助',
-          show: true,
-        });
-      } else {
-        setFeedback({
-          isCorrect: null,
-          message: '获取帮助失败，请稍后再试',
-          show: true,
-        });
-      }
-
-      // Auto-clear feedback after delay
-      setTimeout(() => {
-        setFeedback((prev) => ({ ...prev, show: false }));
-      }, 3000);
-
-      // Auto-retry for certain types of errors (max 2 retries)
-      // Only retry if help window is still visible and conditions are met
-      if (
-        errorInfo.canRetry &&
-        helpRetryCount < 2 &&
-        (errorInfo.type === 'network' || errorInfo.type === 'server')
-      ) {
-        helpRetryTimeoutRef.current = window.setTimeout(
-          () => {
-            // Double-check that help window is still visible before retrying
-            setIsHelpVisible((currentVisible) => {
-              if (currentVisible) {
-                handleRequestHelp(true);
-              }
-              return currentVisible;
-            });
-          },
-          2000 + helpRetryCount * 1000
-        ) as number; // Exponential backoff
-      }
-    } finally {
-      setIsLoadingHelp(false);
-    }
-  };
-
-  // Helper function to determine error type and retry eligibility
-  const determineHelpErrorType = (
-    error: unknown
-  ): {
-    type: 'network' | 'server' | 'llm' | 'unknown';
-    message: string;
-    canRetry: boolean;
-  } => {
-    // Type guard for axios errors
-    const isAxiosError = (
-      err: unknown
-    ): err is {
-      response?: {
-        status: number;
-        data?: { detail?: string; message?: string };
-      };
-      code?: string;
-      message?: string;
-    } => {
-      return (
-        typeof err === 'object' &&
-        err !== null &&
-        ('response' in err || 'code' in err || 'message' in err)
-      );
-    };
-
-    if (!isAxiosError(error)) {
-      return {
-        type: 'unknown',
-        message: '未知错误',
-        canRetry: true,
-      };
-    }
-
-    // Network errors (no response received)
-    if (
-      !error.response &&
-      (error.code === 'NETWORK_ERROR' ||
-        error.message?.includes('Network Error'))
-    ) {
-      return {
-        type: 'network',
-        message: '网络连接失败',
-        canRetry: true,
-      };
-    }
-
-    // Server errors (5xx status codes)
-    if (error.response?.status && error.response.status >= 500) {
-      return {
-        type: 'server',
-        message: '服务器内部错误',
-        canRetry: true,
-      };
-    }
-
-    // LLM-specific errors (backend falls back to mock but still returns error)
-    if (
-      error.response?.status === 503 ||
-      error.response?.data?.detail?.includes('LLM') ||
-      error.response?.data?.detail?.includes('AI') ||
-      error.response?.data?.message?.includes('fallback')
-    ) {
-      return {
-        type: 'llm',
-        message: 'AI服务暂时不可用',
-        canRetry: false, // Don't auto-retry LLM failures, user can manually retry
-      };
-    }
-
-    // Client errors (4xx status codes) - usually not worth retrying
-    if (
-      error.response?.status &&
-      error.response.status >= 400 &&
-      error.response.status < 500
-    ) {
-      return {
-        type: 'server',
-        message: '请求失败',
-        canRetry: false,
-      };
-    }
-
-    // Unknown errors
-    return {
-      type: 'unknown',
-      message: '未知错误',
-      canRetry: true,
-    };
-  };
-
-  // Manual retry function for help requests
-  const handleRetryHelp = () => {
-    handleRequestHelp(true);
-  };
-
-  // Click handler for help button
-  const handleHelpButtonClick = () => {
-    handleRequestHelp(false);
-  };
-
-  // Click handler for voice help button
-  const handleVoiceHelpButtonClick = async () => {
-    if (!sessionId || !currentQuestion) return;
-
-    setIsLoadingVoiceHelp(true);
-    setVoiceHelpError(null);
-
-    try {
-      // Try ultra-optimized streaming first for immediate audio feedback
-      await playUltraStreamingAudio(
-        sessionId,
-        currentQuestion.id,
-        (loaded) => {
-          // Optional: show progress indicator
-          console.log(`Ultra streaming progress: ${loaded} bytes loaded`);
-        },
-        () => {
-          // Audio completed
-          setIsLoadingVoiceHelp(false);
-        },
-        (error) => {
-          // Ultra streaming failed, fallback to regular streaming
-          console.warn(
-            'Ultra streaming failed, falling back to regular streaming:',
-            error
-          );
-          handleRegularStreamingFallback();
-        }
-      );
-    } catch (error) {
-      console.warn(
-        'Ultra streaming setup failed, falling back to regular streaming:',
-        error
-      );
-      handleRegularStreamingFallback();
-    }
-  };
-
-  // Fallback to regular streaming
-  const handleRegularStreamingFallback = async () => {
-    try {
-      await playStreamingAudio(
-        sessionId!,
-        currentQuestion!.id,
-        (loaded) => {
-          console.log(`Regular streaming progress: ${loaded} bytes loaded`);
-        },
-        () => {
-          setIsLoadingVoiceHelp(false);
-        },
-        (error) => {
-          console.warn(
-            'Regular streaming failed, falling back to non-streaming:',
-            error
-          );
-          handleVoiceHelpFallback();
-        }
-      );
-    } catch (error) {
-      console.warn(
-        'Regular streaming setup failed, falling back to non-streaming:',
-        error
-      );
-      handleVoiceHelpFallback();
-    }
-  };
-
-  // Fallback function for non-streaming voice help
-  const handleVoiceHelpFallback = async () => {
-    try {
-      const audioBlob = await getQuestionVoiceHelp(
-        sessionId!,
-        currentQuestion!.id
-      );
-
-      // Create audio URL and play it
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-
-      audio.onended = () => {
-        URL.revokeObjectURL(audioUrl);
-        setIsLoadingVoiceHelp(false);
-      };
-
-      audio.onerror = () => {
-        setVoiceHelpError('音频播放失败');
-        URL.revokeObjectURL(audioUrl);
-        setIsLoadingVoiceHelp(false);
-      };
-
-      await audio.play();
-    } catch (error) {
-      console.error('Error playing voice help:', error);
-      setVoiceHelpError('获取语音提示失败，请稍后重试');
-      setIsLoadingVoiceHelp(false);
-    }
-  };
-
-  const handleCloseHelp = () => {
-    // Clear any pending retry timeout when help window is closed
-    if (helpRetryTimeoutRef.current) {
-      window.clearTimeout(helpRetryTimeoutRef.current);
-      helpRetryTimeoutRef.current = null;
-    }
-
-    setIsHelpVisible(false);
-    setHelpData(null);
-    setHelpError(null);
-    setHelpRetryCount(0);
-  };
-
+  // Math expression parser (unchanged from original)
   const parseMathExpression = (expression: string): React.ReactNode[] => {
     const parts: React.ReactNode[] = [];
     let currentNumber = '';
 
     for (let i = 0; i < expression.length; i++) {
       const char = expression[i];
+
       if (/\d/.test(char)) {
         currentNumber += char;
       } else {
@@ -1382,14 +365,13 @@ const PracticePage: React.FC = () => {
           parts.push(
             <MathIcon
               key={`num-${i}`}
-              character={currentNumber}
+              character={parseInt(currentNumber, 10)}
               size="large"
               color="auto"
             />
           );
           currentNumber = '';
         }
-        // Operators and spaces
         if (char === ' ') {
           parts.push(
             <span key={`space-${i}`} className="expression-space">
@@ -1397,7 +379,6 @@ const PracticePage: React.FC = () => {
             </span>
           );
         } else {
-          // For operators like +, -, *, /, =, ?
           parts.push(
             <MathIcon
               key={`op-${i}`}
@@ -1413,7 +394,7 @@ const PracticePage: React.FC = () => {
       parts.push(
         <MathIcon
           key="num-last"
-          character={currentNumber}
+          character={parseInt(currentNumber, 10)}
           size="large"
           color="auto"
         />
@@ -1422,17 +403,97 @@ const PracticePage: React.FC = () => {
     return parts;
   };
 
-  const displayedExpression = currentQuestion
-    ? parseMathExpression(currentQuestion.question_string)
-    : [];
+  // Early return for loading state
+  if (storeIsLoading && !currentQuestion && !storeSessionId) {
+    return (
+      <div className="practice-container loading-state">
+        <div className="loading-message">正在准备练习...</div>
+      </div>
+    );
+  }
+
+  // Early return for error state
+  if (error && !currentQuestion) {
+    return (
+      <div className="practice-container error-state">
+        <div className="error-message">{error}</div>
+        <button onClick={() => navigate(-1)} className="control-button">
+          返回
+        </button>
+      </div>
+    );
+  }
+
+  // Early return if no question (but session might exist)
+  if (!currentQuestion && storeSessionId && !storeIsLoading) {
+    return (
+      <div className="practice-container">
+        <div className="loading-message">正在加载题目...</div>
+      </div>
+    );
+  }
+
+  // If session doesn't exist and not loading, and no error, it might be a navigation issue
+  if (
+    !storeSessionId &&
+    !storeIsLoading &&
+    !error &&
+    effectiveDifficultyLevelId
+  ) {
+    console.warn(
+      '[PracticePage] No session ID, not loading, no error, but difficulty ID exists. Session init might have failed silently or is pending.'
+    );
+    // This case might indicate an issue if the useEffect for init isn't firing as expected, or startSession isn't setting sessionId.
+  }
+
+  if (!currentQuestion && !effectiveDifficultyLevelId) {
+    // Handles case where user lands here without params
+    return (
+      <div className="practice-container error-state">
+        <div className="error-message">缺少练习参数，请返回首页。</div>
+        <button onClick={() => navigate('/')} className="control-button">
+          返回首页
+        </button>
+      </div>
+    );
+  }
+
+  // If, after all guards, we still don't have a question but expect one (session exists), show loading.
+  // This might be redundant if the above !currentQuestion && storeSessionId handles it.
+  if (!currentQuestion && storeSessionId) {
+    return (
+      <div className="practice-container">
+        <div className="loading-message">题目加载中...</div>
+      </div>
+    );
+  }
+
+  // Final check: if no current question after all this, something is wrong
+  if (!currentQuestion) {
+    console.error(
+      '[PracticePage] Critical error: No current question loaded despite passing guards.'
+    );
+    return (
+      <div className="practice-container error-state">
+        <div className="error-message">加载题目失败，请返回重试。</div>
+        <button onClick={() => navigate(-1)} className="control-button">
+          返回
+        </button>
+      </div>
+    );
+  }
+
+  const displayedExpression = parseMathExpression(
+    currentQuestion.question_string
+  );
 
   return (
     <div className="practice-container">
       <header className="practice-header">
         <div className="progress-info">
-          {difficultyNameFromState && (
+          {effectiveDifficultyName && (
             <span className="difficulty-name-display">
-              难度: {difficultyNameFromState} |{' '}
+              难度: {effectiveDifficultyName} |{' '}
             </span>
           )}
           题目: {questionNumber} / {totalQuestions}
@@ -1460,8 +521,6 @@ const PracticePage: React.FC = () => {
               {displayedExpression.map((part, index) => (
                 <React.Fragment key={index}>{part}</React.Fragment>
               ))}
-              {/* Render the main equals sign that appears AFTER the input boxes */}
-              {/* This now uses character="=" which will trigger the SVG via MathIcon.tsx logic */}
               {!isAnswerSubmitted &&
                 currentQuestion.question_string.includes('=') && (
                   <MathIcon character="=" size="large" color="auto" />
@@ -1492,15 +551,14 @@ const PracticePage: React.FC = () => {
           show={feedback.show}
         />
 
-        {/* Help buttons - only show if not answered yet */}
         {!isAnswerSubmitted && (
           <div className="help-button-container">
             <button
               onClick={handleHelpButtonClick}
               className="help-button button-prism button-violet"
-              disabled={isLoadingHelp || isLoading}
+              disabled={help.isLoading || storeIsLoading}
             >
-              {isLoadingHelp ? (
+              {help.isLoading ? (
                 '加载中...'
               ) : (
                 <>
@@ -1516,17 +574,16 @@ const PracticePage: React.FC = () => {
             <button
               onClick={handleVoiceHelpButtonClick}
               className="voice-help-button"
-              disabled={isLoadingVoiceHelp || isLoading}
+              disabled={voiceHelp.isLoading || storeIsLoading}
               title="语音提示"
             >
-              {isLoadingVoiceHelp ? '🔄' : '🔊 语音提示'}
+              {voiceHelp.isLoading ? '🔄' : '🔊 语音提示'}
             </button>
           </div>
         )}
 
-        {/* Voice help error display */}
-        {voiceHelpError && (
-          <div className="voice-help-error">{voiceHelpError}</div>
+        {voiceHelp.error && (
+          <div className="voice-help-error">{voiceHelp.error}</div>
         )}
       </main>
 
@@ -1547,7 +604,7 @@ const PracticePage: React.FC = () => {
               ? handleSubmitColumnarAnswer
               : handleSubmitAnswer
           }
-          disabled={isAnswerSubmitted || isLoading}
+          disabled={isAnswerSubmitted || storeIsLoading}
         />
       </div>
 
@@ -1556,7 +613,7 @@ const PracticePage: React.FC = () => {
           <button
             onClick={handleNextQuestion}
             className="control-button next-question-button button-interactive"
-            disabled={isLoading}
+            disabled={storeIsLoading}
           >
             下一题
           </button>
@@ -1569,14 +626,13 @@ const PracticePage: React.FC = () => {
         </button>
       </footer>
 
-      {/* Help Box Modal */}
       <HelpBox
-        helpData={helpData}
-        isVisible={isHelpVisible}
+        helpData={help.data}
+        isVisible={help.isVisible}
         onClose={handleCloseHelp}
-        error={helpError}
+        error={help.error}
         onRetry={handleRetryHelp}
-        isLoading={isLoadingHelp}
+        isLoading={help.isLoading}
       />
     </div>
   );

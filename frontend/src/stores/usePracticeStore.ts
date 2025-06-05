@@ -1,0 +1,933 @@
+import { create } from 'zustand';
+import { devtools } from 'zustand/middleware';
+import { immer } from 'zustand/middleware/immer';
+import { useMemo } from 'react';
+import type {
+  PracticeSession,
+  Question,
+  AnswerPayload,
+  HelpResponse,
+} from '../services/api';
+import {
+  startPracticeSession,
+  getNextQuestion,
+  submitAnswer,
+  getPracticeSummary,
+  getQuestionHelp,
+  playStreamingAudio,
+} from '../services/api';
+
+interface FeedbackState {
+  isCorrect: boolean | null;
+  message: string;
+  correctAnswer?: number;
+  show: boolean;
+}
+
+interface HelpState {
+  data: HelpResponse | null;
+  isVisible: boolean;
+  isLoading: boolean;
+  error: {
+    type: 'network' | 'server' | 'llm' | 'unknown';
+    message: string;
+    canRetry: boolean;
+  } | null;
+  retryCount: number;
+}
+
+interface VoiceHelpState {
+  isLoading: boolean;
+  error: string | null;
+  isPlaying: boolean;
+  progress: number;
+}
+
+interface ColumnarInputState {
+  type: 'operand' | 'result';
+  rowIndex?: number;
+  digitIndex: number;
+}
+
+interface PracticeState {
+  // Session state
+  sessionId: string | null;
+  session: PracticeSession | null;
+
+  // Question state
+  currentQuestion: Question | null;
+  questionNumber: number;
+  totalQuestions: number;
+  questionAnimationKey: number;
+
+  // Answer state
+  currentAnswer: string;
+  columnarResultDigits: (number | null)[] | null;
+  columnarOperandDigits: (number | null)[][] | null;
+  activeColumnarInput: ColumnarInputState | null;
+  isAnswerSubmitted: boolean;
+
+  // Progress state
+  score: number;
+
+  // UI state
+  isLoading: boolean;
+  error: string | null;
+  isSessionOver: boolean;
+
+  // Feedback state
+  feedback: FeedbackState;
+
+  // Help state
+  help: HelpState;
+
+  // Voice help state
+  voiceHelp: VoiceHelpState;
+
+  // Session summary
+  sessionDataForSummary: PracticeSession | null;
+}
+
+interface PracticeActions {
+  // Session actions
+  startSession: (
+    difficultyLevelId: number,
+    totalQuestions?: number
+  ) => Promise<void>;
+  endSession: () => Promise<void>;
+  resetSession: () => void;
+
+  // Question actions
+  loadNextQuestion: () => Promise<void>;
+
+  // Answer actions
+  setCurrentAnswer: (answer: string) => void;
+  submitCurrentAnswer: () => Promise<void>;
+
+  // Columnar answer actions
+  setColumnarResultDigits: (digits: (number | null)[]) => void;
+  setColumnarOperandDigits: (digits: (number | null)[][]) => void;
+  setActiveColumnarInput: (input: ColumnarInputState | null) => void;
+  updateColumnarDigit: (
+    digit: number,
+    type: 'operand' | 'result',
+    digitIndex: number,
+    rowIndex?: number
+  ) => void;
+  clearColumnarInputs: () => void;
+
+  // Navigation helpers
+  findNextFocusableInput: () => void;
+
+  // Feedback actions
+  showFeedback: (
+    isCorrect: boolean,
+    message?: string,
+    correctAnswer?: number
+  ) => void;
+  hideFeedback: () => void;
+
+  // Help actions
+  requestHelp: () => Promise<void>;
+  retryHelp: () => Promise<void>;
+  showHelp: () => void;
+  hideHelp: () => void;
+  clearHelpError: () => void;
+
+  // Voice help actions
+  requestVoiceHelp: () => Promise<void>;
+  playVoiceHelp: () => Promise<void>;
+  stopVoiceHelp: () => void;
+
+  // Error handling
+  setError: (error: string | null) => void;
+  clearError: () => void;
+
+  // Loading states
+  setLoading: (loading: boolean) => void;
+
+  // Complete reset
+  reset: () => void;
+}
+
+type PracticeStore = PracticeState & PracticeActions;
+
+const initialFeedback: FeedbackState = {
+  isCorrect: null,
+  message: '',
+  correctAnswer: undefined,
+  show: false,
+};
+
+const initialHelp: HelpState = {
+  data: null,
+  isVisible: false,
+  isLoading: false,
+  error: null,
+  retryCount: 0,
+};
+
+const initialVoiceHelp: VoiceHelpState = {
+  isLoading: false,
+  error: null,
+  isPlaying: false,
+  progress: 0,
+};
+
+const initialState: PracticeState = {
+  sessionId: null,
+  session: null,
+  currentQuestion: null,
+  questionNumber: 0,
+  totalQuestions: 0,
+  questionAnimationKey: 0,
+  currentAnswer: '',
+  columnarResultDigits: null,
+  columnarOperandDigits: null,
+  activeColumnarInput: null,
+  isAnswerSubmitted: false,
+  score: 0,
+  isLoading: false,
+  error: null,
+  isSessionOver: false,
+  feedback: initialFeedback,
+  help: initialHelp,
+  voiceHelp: initialVoiceHelp,
+  sessionDataForSummary: null,
+};
+
+export const usePracticeStore = create<PracticeStore>()(
+  devtools(
+    immer((set, get) => ({
+      ...initialState,
+
+      // Session actions
+      startSession: async (
+        difficultyLevelId: number,
+        totalQuestions: number = 10
+      ) => {
+        try {
+          set((state) => {
+            state.isLoading = true;
+            state.error = null;
+            // Ensure previous session data is cleared before starting a new one
+            state.sessionId = null;
+            state.session = null;
+            state.currentQuestion = null;
+            state.questionNumber = 0;
+            state.totalQuestions = 0;
+          });
+
+          const sessionData = await startPracticeSession(
+            difficultyLevelId,
+            totalQuestions
+          );
+
+          set((state) => {
+            state.sessionId = sessionData.id;
+            state.session = sessionData;
+            state.totalQuestions = sessionData.total_questions_planned;
+            state.score = sessionData.score;
+          });
+
+          // Load first question
+          await get().loadNextQuestion();
+
+          set((state) => {
+            state.questionNumber = 1;
+            state.isLoading = false;
+          });
+        } catch (error) {
+          set((state) => {
+            state.error = '开始练习失败，请稍后再试。';
+            state.isLoading = false;
+          });
+          console.error('Error starting session:', error);
+        }
+      },
+
+      endSession: async () => {
+        const sessionId = get().sessionId;
+        if (!sessionId) return;
+
+        try {
+          const summaryData = await getPracticeSummary(sessionId);
+          set((state) => {
+            state.sessionDataForSummary = summaryData;
+            state.isSessionOver = true;
+          });
+        } catch (error) {
+          console.error('Error fetching session summary:', error);
+          set((state) => {
+            state.isSessionOver = true;
+          });
+        }
+      },
+
+      resetSession: () => {
+        set((state) => {
+          Object.assign(state, initialState);
+        });
+      },
+
+      // Question actions
+      loadNextQuestion: async () => {
+        const sessionId = get().sessionId;
+        if (!sessionId) return;
+
+        try {
+          set((state) => {
+            state.isLoading = true;
+          });
+
+          const question = await getNextQuestion(sessionId);
+
+          console.log('[usePracticeStore] Loaded question:', {
+            id: question.id,
+            question_type: question.question_type,
+            question_string: question.question_string,
+            columnar_operands: question.columnar_operands,
+            columnar_result_placeholders: question.columnar_result_placeholders,
+            columnar_operation: question.columnar_operation,
+          });
+
+          set((state) => {
+            state.currentQuestion = question;
+            state.questionAnimationKey += 1;
+            state.currentAnswer = '';
+
+            // Initialize columnar data for columnar questions
+            if (question.question_type === 'columnar') {
+              // Initialize operand digits from question data
+              if (question.columnar_operands) {
+                state.columnarOperandDigits = question.columnar_operands.map(
+                  (row) =>
+                    row.map((digit) => (digit === undefined ? null : digit))
+                );
+              } else {
+                state.columnarOperandDigits = null;
+              }
+
+              // Initialize result digits from question data
+              if (question.columnar_result_placeholders) {
+                state.columnarResultDigits =
+                  question.columnar_result_placeholders.map((digit) =>
+                    digit === undefined ? null : digit
+                  );
+              } else {
+                state.columnarResultDigits = null;
+              }
+            } else {
+              state.columnarResultDigits = null;
+              state.columnarOperandDigits = null;
+            }
+
+            state.activeColumnarInput = null;
+            state.isAnswerSubmitted = false;
+            state.feedback = initialFeedback;
+            state.help = initialHelp;
+            state.voiceHelp = initialVoiceHelp;
+            state.isLoading = false;
+          });
+
+          // Auto-focus first input for columnar questions
+          if (question.question_type === 'columnar') {
+            setTimeout(() => {
+              get().findNextFocusableInput();
+            }, 100);
+          }
+        } catch (error) {
+          set((state) => {
+            state.error = '获取题目失败，请稍后再试。';
+            state.isLoading = false;
+          });
+          console.error('Error loading next question:', error);
+        }
+      },
+
+      // Answer actions
+      setCurrentAnswer: (answer: string) => {
+        console.log('[usePracticeStore] setCurrentAnswer called with:', answer);
+        set((state) => {
+          console.log(
+            '[usePracticeStore] Previous currentAnswer:',
+            state.currentAnswer
+          );
+          state.currentAnswer = answer;
+          console.log(
+            '[usePracticeStore] New currentAnswer:',
+            state.currentAnswer
+          );
+        });
+      },
+
+      submitCurrentAnswer: async () => {
+        const state = get();
+        const {
+          sessionId,
+          currentQuestion,
+          currentAnswer,
+          columnarOperandDigits,
+          columnarResultDigits,
+        } = state;
+
+        if (!sessionId || !currentQuestion || state.isAnswerSubmitted) return;
+
+        try {
+          set((draft) => {
+            draft.isLoading = true;
+            draft.isAnswerSubmitted = true;
+          });
+
+          const payload: AnswerPayload = {
+            session_id: sessionId,
+            question_id: currentQuestion.id,
+            time_spent: 30, // TODO: Implement actual time tracking
+          };
+
+          if (currentQuestion.question_type === 'columnar') {
+            if (columnarOperandDigits) {
+              payload.user_filled_operands = columnarOperandDigits.map((row) =>
+                row.map((digit) => digit ?? 0)
+              );
+            }
+            if (columnarResultDigits) {
+              payload.user_filled_result = columnarResultDigits.map(
+                (digit) => digit ?? 0
+              );
+            }
+          } else {
+            const answerNumber = parseFloat(currentAnswer);
+            if (!isNaN(answerNumber)) {
+              payload.user_answer = answerNumber;
+            }
+          }
+
+          const result = await submitAnswer(payload);
+
+          set((draft) => {
+            draft.score =
+              result.user_answer !== undefined
+                ? draft.score + (result.is_correct ? 1 : 0)
+                : draft.score;
+            draft.isLoading = false;
+          });
+
+          // Show feedback
+          get().showFeedback(
+            result.is_correct ?? false,
+            result.is_correct ? '答对了！🎉' : '再想想哦 🤔',
+            result.correct_answer
+          );
+
+          // Auto-advance to next question after delay
+          setTimeout(async () => {
+            if (get().questionNumber < get().totalQuestions) {
+              set((draft) => {
+                draft.questionNumber += 1;
+              });
+              await get().loadNextQuestion();
+            } else {
+              await get().endSession();
+            }
+          }, 2000);
+        } catch (error) {
+          set((state) => {
+            state.error = '提交答案失败，请稍后再试。';
+            state.isLoading = false;
+            state.isAnswerSubmitted = false;
+          });
+          console.error('Error submitting answer:', error);
+        }
+      },
+
+      // Columnar answer actions
+      setColumnarResultDigits: (digits: (number | null)[]) => {
+        set((state) => {
+          state.columnarResultDigits = digits;
+        });
+      },
+
+      setColumnarOperandDigits: (digits: (number | null)[][]) => {
+        set((state) => {
+          state.columnarOperandDigits = digits;
+        });
+      },
+
+      setActiveColumnarInput: (input: ColumnarInputState | null) => {
+        console.log(
+          '[usePracticeStore] setActiveColumnarInput called with:',
+          input
+        );
+        set((state) => {
+          state.activeColumnarInput = input;
+        });
+      },
+
+      updateColumnarDigit: (
+        digit: number,
+        type: 'operand' | 'result',
+        digitIndex: number,
+        rowIndex?: number
+      ) => {
+        console.log('[usePracticeStore] updateColumnarDigit called with:', {
+          digit,
+          type,
+          digitIndex,
+          rowIndex,
+        });
+
+        const state = get();
+        console.log('[usePracticeStore] Current columnar state:', {
+          columnarOperandDigits: state.columnarOperandDigits,
+          columnarResultDigits: state.columnarResultDigits,
+          activeColumnarInput: state.activeColumnarInput,
+        });
+
+        set((state) => {
+          if (
+            type === 'operand' &&
+            rowIndex !== undefined &&
+            state.columnarOperandDigits
+          ) {
+            if (
+              state.columnarOperandDigits[rowIndex] &&
+              state.columnarOperandDigits[rowIndex][digitIndex] === null
+            ) {
+              console.log('[usePracticeStore] Setting operand digit:', {
+                rowIndex,
+                digitIndex,
+                digit,
+              });
+              state.columnarOperandDigits[rowIndex][digitIndex] = digit;
+            } else {
+              console.log(
+                '[usePracticeStore] Cannot set operand digit - not null or invalid position'
+              );
+            }
+          } else if (type === 'result' && state.columnarResultDigits) {
+            if (state.columnarResultDigits[digitIndex] === null) {
+              console.log('[usePracticeStore] Setting result digit:', {
+                digitIndex,
+                digit,
+              });
+              state.columnarResultDigits[digitIndex] = digit;
+            } else {
+              console.log(
+                '[usePracticeStore] Cannot set result digit - not null'
+              );
+            }
+          } else {
+            console.log(
+              '[usePracticeStore] updateColumnarDigit - no matching conditions'
+            );
+          }
+        });
+
+        // Auto-advance to next input
+        get().findNextFocusableInput();
+      },
+
+      clearColumnarInputs: () => {
+        set((state) => {
+          if (state.currentQuestion?.columnar_operands) {
+            state.columnarOperandDigits =
+              state.currentQuestion.columnar_operands.map((row) =>
+                row.map((digit) => (digit === undefined ? null : digit))
+              );
+          }
+          if (state.currentQuestion?.columnar_result_placeholders) {
+            state.columnarResultDigits =
+              state.currentQuestion.columnar_result_placeholders.map((digit) =>
+                digit === undefined ? null : digit
+              );
+          }
+          state.activeColumnarInput = null;
+        });
+      },
+
+      // Navigation helpers
+      findNextFocusableInput: () => {
+        const state = get();
+        const {
+          columnarOperandDigits,
+          columnarResultDigits,
+          activeColumnarInput,
+        } = state;
+
+        console.log('[usePracticeStore] findNextFocusableInput called:', {
+          hasOperandDigits: !!columnarOperandDigits,
+          hasResultDigits: !!columnarResultDigits,
+          activeColumnarInput,
+        });
+
+        if (!columnarOperandDigits || !columnarResultDigits) {
+          console.log('[usePracticeStore] No columnar data available');
+          return;
+        }
+
+        // If no active input, start from the beginning
+        if (!activeColumnarInput) {
+          // Look for first empty operand input
+          for (let r = 0; r < columnarOperandDigits.length; r++) {
+            for (let d = 0; d < columnarOperandDigits[r].length; d++) {
+              if (columnarOperandDigits[r][d] === null) {
+                console.log('[usePracticeStore] Setting first operand input:', {
+                  rowIndex: r,
+                  digitIndex: d,
+                });
+                get().setActiveColumnarInput({
+                  type: 'operand',
+                  rowIndex: r,
+                  digitIndex: d,
+                });
+                return;
+              }
+            }
+          }
+
+          // If no empty operand inputs, look for empty result inputs
+          for (let i = 0; i < columnarResultDigits.length; i++) {
+            if (columnarResultDigits[i] === null) {
+              console.log('[usePracticeStore] Setting first result input:', {
+                digitIndex: i,
+              });
+              get().setActiveColumnarInput({ type: 'result', digitIndex: i });
+              return;
+            }
+          }
+
+          console.log('[usePracticeStore] No empty inputs found');
+          return;
+        }
+
+        // Logic to find next focusable input based on current active input
+        if (
+          activeColumnarInput?.type === 'operand' &&
+          activeColumnarInput.rowIndex !== undefined
+        ) {
+          // Look for next empty operand input in current row
+          for (
+            let i = activeColumnarInput.digitIndex + 1;
+            i < columnarOperandDigits[activeColumnarInput.rowIndex].length;
+            i++
+          ) {
+            if (
+              columnarOperandDigits[activeColumnarInput.rowIndex][i] === null
+            ) {
+              console.log('[usePracticeStore] Setting next operand in row:', {
+                rowIndex: activeColumnarInput.rowIndex,
+                digitIndex: i,
+              });
+              get().setActiveColumnarInput({
+                type: 'operand',
+                rowIndex: activeColumnarInput.rowIndex,
+                digitIndex: i,
+              });
+              return;
+            }
+          }
+
+          // Look for next empty operand input in next rows
+          for (
+            let r = activeColumnarInput.rowIndex + 1;
+            r < columnarOperandDigits.length;
+            r++
+          ) {
+            for (let d = 0; d < columnarOperandDigits[r].length; d++) {
+              if (columnarOperandDigits[r][d] === null) {
+                console.log(
+                  '[usePracticeStore] Setting next operand in next row:',
+                  {
+                    rowIndex: r,
+                    digitIndex: d,
+                  }
+                );
+                get().setActiveColumnarInput({
+                  type: 'operand',
+                  rowIndex: r,
+                  digitIndex: d,
+                });
+                return;
+              }
+            }
+          }
+        }
+
+        // Look for empty result inputs
+        const startIndex =
+          activeColumnarInput?.type === 'result'
+            ? activeColumnarInput.digitIndex + 1
+            : 0;
+        for (let i = startIndex; i < columnarResultDigits.length; i++) {
+          if (columnarResultDigits[i] === null) {
+            console.log('[usePracticeStore] Setting result input:', {
+              digitIndex: i,
+            });
+            get().setActiveColumnarInput({ type: 'result', digitIndex: i });
+            return;
+          }
+        }
+
+        // No more focusable inputs
+        console.log('[usePracticeStore] No more focusable inputs');
+        get().setActiveColumnarInput(null);
+      },
+
+      // Feedback actions
+      showFeedback: (
+        isCorrect: boolean,
+        message?: string,
+        correctAnswer?: number
+      ) => {
+        set((state) => {
+          state.feedback = {
+            isCorrect,
+            message: message || (isCorrect ? '答对了！🎉' : '再想想哦 🤔'),
+            correctAnswer,
+            show: true,
+          };
+        });
+      },
+
+      hideFeedback: () => {
+        set((state) => {
+          state.feedback = initialFeedback;
+        });
+      },
+
+      // Help actions
+      requestHelp: async () => {
+        const { sessionId, currentQuestion } = get();
+        if (!sessionId || !currentQuestion) return;
+
+        set((state) => {
+          state.help.isVisible = true;
+          state.help.isLoading = true;
+          state.help.error = null;
+        });
+
+        try {
+          const helpResponse = await getQuestionHelp(
+            sessionId,
+            currentQuestion.id
+          );
+
+          set((state) => {
+            state.help.data = helpResponse;
+            state.help.isLoading = false;
+            state.help.retryCount = 0;
+          });
+        } catch (error) {
+          set((state) => {
+            state.help.error = {
+              type: 'network',
+              message: '获取帮助失败，请稍后再试。',
+              canRetry: true,
+            };
+            state.help.isLoading = false;
+            state.help.retryCount += 1;
+          });
+          console.error('Error requesting help:', error);
+        }
+      },
+
+      retryHelp: async () => {
+        await get().requestHelp();
+      },
+
+      showHelp: () => {
+        set((state) => {
+          state.help.isVisible = true;
+        });
+      },
+
+      hideHelp: () => {
+        set((state) => {
+          state.help.isVisible = false;
+        });
+      },
+
+      clearHelpError: () => {
+        set((state) => {
+          state.help.error = null;
+        });
+      },
+
+      // Voice help actions
+      requestVoiceHelp: async () => {
+        const { sessionId, currentQuestion } = get();
+        if (!sessionId || !currentQuestion) return;
+
+        set((state) => {
+          state.voiceHelp.isLoading = true;
+          state.voiceHelp.error = null;
+        });
+
+        try {
+          await playStreamingAudio(
+            sessionId,
+            currentQuestion.id,
+            (progress) => {
+              set((state) => {
+                state.voiceHelp.progress = progress;
+              });
+            },
+            () => {
+              set((state) => {
+                state.voiceHelp.isLoading = false;
+                state.voiceHelp.isPlaying = false;
+                state.voiceHelp.progress = 0;
+              });
+            },
+            (error) => {
+              set((state) => {
+                state.voiceHelp.error = error.message;
+                state.voiceHelp.isLoading = false;
+                state.voiceHelp.isPlaying = false;
+              });
+            }
+          );
+
+          set((state) => {
+            state.voiceHelp.isLoading = false;
+            state.voiceHelp.isPlaying = true;
+          });
+        } catch (error) {
+          set((state) => {
+            state.voiceHelp.error = '语音帮助失败，请稍后再试。';
+            state.voiceHelp.isLoading = false;
+          });
+          console.error('Error requesting voice help:', error);
+        }
+      },
+
+      playVoiceHelp: async () => {
+        await get().requestVoiceHelp();
+      },
+
+      stopVoiceHelp: () => {
+        set((state) => {
+          state.voiceHelp.isPlaying = false;
+          state.voiceHelp.progress = 0;
+        });
+      },
+
+      // Error handling
+      setError: (error: string | null) => {
+        set((state) => {
+          state.error = error;
+        });
+      },
+
+      clearError: () => {
+        set((state) => {
+          state.error = null;
+        });
+      },
+
+      // Loading states
+      setLoading: (loading: boolean) => {
+        set((state) => {
+          state.isLoading = loading;
+        });
+      },
+
+      // Complete reset
+      reset: () => {
+        set((state) => {
+          Object.assign(state, initialState);
+        });
+      },
+    })),
+    {
+      name: 'practice-store',
+    }
+  )
+);
+
+// Selectors for better performance
+export const usePracticeSession = () => {
+  const sessionId = usePracticeStore((state) => state.sessionId);
+  const session = usePracticeStore((state) => state.session);
+  const isSessionOver = usePracticeStore((state) => state.isSessionOver);
+
+  return useMemo(
+    () => ({ sessionId, session, isSessionOver }),
+    [sessionId, session, isSessionOver]
+  );
+};
+
+export const usePracticeQuestion = () => {
+  const question = usePracticeStore((state) => state.currentQuestion);
+  const questionNumber = usePracticeStore((state) => state.questionNumber);
+  const totalQuestions = usePracticeStore((state) => state.totalQuestions);
+  const animationKey = usePracticeStore((state) => state.questionAnimationKey);
+
+  return useMemo(
+    () => ({ question, questionNumber, totalQuestions, animationKey }),
+    [question, questionNumber, totalQuestions, animationKey]
+  );
+};
+
+export const usePracticeAnswer = () => {
+  const currentAnswer = usePracticeStore((state) => state.currentAnswer);
+  const columnarResultDigits = usePracticeStore(
+    (state) => state.columnarResultDigits
+  );
+  const columnarOperandDigits = usePracticeStore(
+    (state) => state.columnarOperandDigits
+  );
+  const activeColumnarInput = usePracticeStore(
+    (state) => state.activeColumnarInput
+  );
+  const isAnswerSubmitted = usePracticeStore(
+    (state) => state.isAnswerSubmitted
+  );
+
+  return useMemo(
+    () => ({
+      currentAnswer,
+      columnarResultDigits,
+      columnarOperandDigits,
+      activeColumnarInput,
+      isAnswerSubmitted,
+    }),
+    [
+      currentAnswer,
+      columnarResultDigits,
+      columnarOperandDigits,
+      activeColumnarInput,
+      isAnswerSubmitted,
+    ]
+  );
+};
+
+export const usePracticeProgress = () => {
+  const score = usePracticeStore((state) => state.score);
+  const questionNumber = usePracticeStore((state) => state.questionNumber);
+  const totalQuestions = usePracticeStore((state) => state.totalQuestions);
+
+  return useMemo(
+    () => ({ score, questionNumber, totalQuestions }),
+    [score, questionNumber, totalQuestions]
+  );
+};
+
+export const usePracticeUI = () => {
+  const isLoading = usePracticeStore((state) => state.isLoading);
+  const error = usePracticeStore((state) => state.error);
+  const feedback = usePracticeStore((state) => state.feedback);
+
+  return useMemo(
+    () => ({ isLoading, error, feedback }),
+    [isLoading, error, feedback]
+  );
+};
+
+export const usePracticeHelp = () => {
+  const help = usePracticeStore((state) => state.help);
+  const voiceHelp = usePracticeStore((state) => state.voiceHelp);
+
+  return useMemo(() => ({ help, voiceHelp }), [help, voiceHelp]);
+};
