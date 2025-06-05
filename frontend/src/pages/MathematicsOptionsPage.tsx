@@ -1,12 +1,15 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useNavigationStore, useNavigationFlow } from '../stores';
 import '../styles/MathematicsOptionsPage.css';
 import joeyWaving from '../assets/mascot/PrismJoey_Mascot_Waving Pose.png';
 
 const MathematicsOptionsPage: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const selectedGrade = location.state?.selectedGrade || '1';
+  const { setMathOption, navigateToStep, goBack } = useNavigationStore();
+  const { grade } = useNavigationFlow();
+
+  const selectedGrade = grade || '1';
 
   const gradeLabels: { [key: string]: string } = {
     '1': '一年级',
@@ -19,31 +22,31 @@ const MathematicsOptionsPage: React.FC = () => {
 
   const handlePracticeExercisesClick = () => {
     if (selectedGrade === '1') {
-      // Only Grade 1 has working practice exercises
+      setMathOption('practice-exercises');
+      navigateToStep('difficulty-selection');
       navigate('/difficulty-selection');
     } else {
-      // Other grades show development message
       alert(`${gradeLabels[selectedGrade]}练习题正在开发中...`);
     }
   };
 
   const handleMentalArithmeticClick = () => {
-    // Placeholder for future development
     alert(`${gradeLabels[selectedGrade]}心算练习正在开发中...`);
   };
 
   const handleMathScenariosClick = () => {
-    // Placeholder for future development
     alert(`${gradeLabels[selectedGrade]}数学应用场景正在开发中...`);
   };
 
   const handleFunMathClick = () => {
-    // Placeholder for future development
     alert(`${gradeLabels[selectedGrade]}趣味数学正在开发中...`);
   };
 
   const handleBackClick = () => {
-    navigate('/subject-selection', { state: { selectedGrade } });
+    const previousStep = goBack();
+    if (previousStep) {
+      navigate('/subject-selection');
+    }
   };
 
   return (

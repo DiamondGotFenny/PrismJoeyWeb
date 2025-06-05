@@ -42,6 +42,8 @@ export {
   useSessionStatus,
 } from './useNavigationStore';
 
+export type { NavigationStep } from './useNavigationStore';
+
 export {
   useAPIStore,
   useAPIRequest,

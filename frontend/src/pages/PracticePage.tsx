@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useNavigationStore, useNavigationFlow } from '../stores';
 import NumericKeypad from '../components/NumericKeypad';
 import FeedbackDisplay from '../components/FeedbackDisplay';
 import ColumnarCalculation from '../components/ColumnarCalculation';
@@ -18,11 +19,12 @@ import {
 } from '../stores';
 
 const PracticePage: React.FC = () => {
-  const location = useLocation();
   const navigate = useNavigate();
+  const { startSession, endSession } = useNavigationStore();
+  const { difficulty, totalQuestions } = useNavigationFlow();
 
-  const startSession = usePracticeStore((state) => state.startSession);
-  const endSession = usePracticeStore((state) => state.endSession);
+  const startPracticeSession = usePracticeStore((state) => state.startSession);
+  const endPracticeSession = usePracticeStore((state) => state.endSession);
   const setError = usePracticeStore((state) => state.setError);
   const loadNextQuestion = usePracticeStore((state) => state.loadNextQuestion);
   const setCurrentAnswerAction = usePracticeStore(
@@ -60,7 +62,7 @@ const PracticePage: React.FC = () => {
   const {
     question: currentQuestion,
     questionNumber,
-    totalQuestions,
+    totalQuestions: practiceTotal,
     animationKey: questionAnimationKey,
   } = usePracticeQuestion();
 
@@ -77,34 +79,49 @@ const PracticePage: React.FC = () => {
   const { isSessionOver } = usePracticeSession();
   const { help, voiceHelp } = usePracticeHelp();
 
-  const difficultyLevelIdFromState = location.state
-    ?.difficultyLevelId as number;
-  const difficultyNameFromState = location.state?.difficultyName as string;
-
+  // Get difficulty information from navigation store or URL parameters (fallback for testing)
   const urlParams = new URLSearchParams(location.search);
   const difficultyIdFromUrl = urlParams.get('difficultyId');
   const totalQuestionsFromUrl = urlParams.get('totalQuestions');
   const difficultyNameFromUrl = urlParams.get('difficultyName');
+  const testMode = urlParams.get('testMode') === 'true';
 
+  // Use navigation store as primary source, URL parameters as fallback for testing
   const effectiveDifficultyLevelId =
-    difficultyLevelIdFromState ||
+    difficulty?.id ||
     (difficultyIdFromUrl ? parseInt(difficultyIdFromUrl, 10) : undefined);
   const effectiveTotalQuestions =
-    location.state?.totalQuestions ||
+    totalQuestions ||
     (totalQuestionsFromUrl ? parseInt(totalQuestionsFromUrl, 10) : 10);
-  const effectiveDifficultyName =
-    difficultyNameFromState || difficultyNameFromUrl || undefined;
+  const effectiveDifficultyName = difficulty?.name || difficultyNameFromUrl;
+
+  // In test mode, create a mock difficulty object if URL parameters are provided
+  const mockDifficultyForTesting =
+    testMode && difficultyIdFromUrl && difficultyNameFromUrl
+      ? {
+          id: parseInt(difficultyIdFromUrl, 10),
+          name: difficultyNameFromUrl,
+          code: 'TEST_DIFFICULTY',
+          max_number: 100,
+          allow_carry: true,
+          allow_borrow: false,
+          operation_types: ['+'],
+          order: 1,
+        }
+      : null;
 
   console.log('[PracticePage] Component Render. Effective values:', {
     difficultyLevelId: effectiveDifficultyLevelId,
     totalQuestions: effectiveTotalQuestions,
     storeSessionId,
     storeIsLoading,
+    testMode,
+    usingMockDifficulty: !!mockDifficultyForTesting,
   });
 
   useEffect(() => {
     console.log(
-      `[PracticePage] Session Init Effect. Effective Difficulty ID: ${effectiveDifficultyLevelId}, Existing Session ID: ${storeSessionId}, IsLoading: ${storeIsLoading}`
+      `[PracticePage] Session Init Effect. Effective Difficulty ID: ${effectiveDifficultyLevelId}, Existing Session ID: ${storeSessionId}, IsLoading: ${storeIsLoading}, Test Mode: ${testMode}`
     );
 
     if (effectiveDifficultyLevelId && !storeSessionId && !storeIsLoading) {
@@ -113,7 +130,11 @@ const PracticePage: React.FC = () => {
           `[PracticePage] Condition met: Attempting to start session. Current isLoading: ${usePracticeStore.getState().isLoading}`
         );
         try {
-          await startSession(
+          // Start navigation session tracking
+          await startSession(`session_${Date.now()}`);
+
+          // Start practice session with difficulty
+          await startPracticeSession(
             effectiveDifficultyLevelId,
             effectiveTotalQuestions
           );
@@ -140,21 +161,14 @@ const PracticePage: React.FC = () => {
       console.log('[PracticePage] Session already exists. ID:', storeSessionId);
     } else if (!effectiveDifficultyLevelId) {
       console.log('[PracticePage] No effective difficulty level ID provided.');
-      // setError('请提供有效的难度级别ID。'); // Optional: set error if this state is unexpected
+      if (!testMode) {
+        setError('请先选择难度级别。');
+      }
     }
 
-    // Cleanup function: This will run when the component unmounts,
-    // or IF effectiveDifficultyLevelId/effectiveTotalQuestions change.
+    // Cleanup function
     return () => {
-      console.log(
-        '[PracticePage] useEffect cleanup triggered. Current path:',
-        location.pathname
-      );
-      // For now, let's limit resetSession to explicit exit or full unmount.
-      // The `handleExitPractice` already calls `endSession`.
-      // If `endSession` is not enough, `resetSession` could be called there,
-      // or in a dedicated unmount effect if really needed.
-      // Removing the automatic resetSession() from *this* effect's cleanup to break the loop.
+      console.log('[PracticePage] useEffect cleanup triggered.');
       console.log(
         '[PracticePage] Cleanup: For now, not calling resetSession() here to prevent loops. Session end/reset should be handled by navigation or explicit actions.'
       );
@@ -162,11 +176,12 @@ const PracticePage: React.FC = () => {
   }, [
     effectiveDifficultyLevelId,
     effectiveTotalQuestions,
-    storeSessionId, // Still needed to react to session being set/unset
-    storeIsLoading, // Added back to ensure the !storeIsLoading check is robust
-    startSession, // Action, should be stable
-    setError, // Action, should be stable
-    // resetSession is removed from deps as it's not directly called by the effect body
+    storeSessionId,
+    storeIsLoading,
+    testMode,
+    startSession,
+    startPracticeSession,
+    setError,
   ]);
 
   // Handle keypad input for regular questions
@@ -234,9 +249,11 @@ const PracticePage: React.FC = () => {
 
   // Handle exit practice
   const handleExitPractice = useCallback(() => {
-    endSession();
+    // End both navigation session and practice session
+    endSession(); // Navigation store
+    endPracticeSession(); // Practice store
     navigate(-1);
-  }, [endSession, navigate]);
+  }, [endSession, endPracticeSession, navigate]);
 
   // Columnar calculation handlers
   const handleColumnarAnswerChange = useCallback(
@@ -496,7 +513,7 @@ const PracticePage: React.FC = () => {
               难度: {effectiveDifficultyName} |{' '}
             </span>
           )}
-          题目: {questionNumber} / {totalQuestions}
+          题目: {questionNumber} / {practiceTotal}
         </div>
         <div className="score-info">得分: {score}</div>
       </header>

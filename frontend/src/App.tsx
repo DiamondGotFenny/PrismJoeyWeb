@@ -4,8 +4,8 @@ import {
   Routes,
   Route,
   Navigate,
-  useLocation,
 } from 'react-router-dom';
+import { useSessionStatus } from './stores';
 import WelcomePage from './pages/WelcomePage';
 import GradeSelectionPage from './pages/GradeSelectionPage';
 import SubjectSelectionPage from './pages/SubjectSelectionPage';
@@ -18,8 +18,7 @@ import './App.css';
 
 // Placeholder for a summary page - can be developed later
 const PracticeSummaryPagePlaceholder: React.FC = () => {
-  const location = useLocation();
-  const sessionId = location.state?.sessionId;
+  const { sessionId } = useSessionStatus();
   return (
     <div style={{ padding: '20px', textAlign: 'center' }}>
       <h1>练习总结</h1>

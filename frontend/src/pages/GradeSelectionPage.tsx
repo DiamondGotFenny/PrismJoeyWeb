@@ -1,10 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useNavigationStore } from '../stores';
 import '../styles/GradeSelectionPage.css';
 import joeyWaving from '../assets/mascot/PrismJoey_Mascot_Waving Pose.png';
 
 const GradeSelectionPage: React.FC = () => {
   const navigate = useNavigate();
+  const { setGrade, navigateToStep } = useNavigationStore();
 
   const grades = [
     { value: '1', label: '一年级', color: 'red' },
@@ -16,11 +18,16 @@ const GradeSelectionPage: React.FC = () => {
   ];
 
   const handleGradeSelect = (grade: string) => {
-    // Navigate to subject selection with selected grade
-    navigate('/subject-selection', { state: { selectedGrade: grade } });
+    // Update navigation store with selected grade
+    setGrade(grade);
+    navigateToStep('subject-selection');
+
+    // Navigate to subject selection - no state needed
+    navigate('/subject-selection');
   };
 
   const handleBackClick = () => {
+    navigateToStep('welcome');
     navigate('/');
   };
 

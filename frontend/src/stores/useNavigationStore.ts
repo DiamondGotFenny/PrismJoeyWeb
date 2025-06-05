@@ -3,7 +3,7 @@ import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import type { DifficultyLevel } from '../services/api';
 
-type NavigationStep =
+export type NavigationStep =
   | 'welcome'
   | 'grade-selection'
   | 'subject-selection'

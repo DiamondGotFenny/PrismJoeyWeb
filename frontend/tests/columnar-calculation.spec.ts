@@ -4,7 +4,8 @@ test.describe('Columnar Calculation E2E - Zustand Architecture', () => {
   // Helper function to navigate to a practice page with columnar questions
   const setupColumnarQuestion = async (page: Page) => {
     const mockDifficultyLevelId = 1; // Example difficulty ID
-    const mockTotalQuestions = 5; // Example total questions
+    const mockTotalQuestions = 5; // Example total questions from URL
+    const expectedTotalQuestions = 10; // Component defaults to 10 when not set via navigation store
     const mockSessionId = 'mock-session-id-123';
     const mockQuestionId = 'mock-question-id-456';
 
@@ -24,7 +25,31 @@ test.describe('Columnar Calculation E2E - Zustand Architecture', () => {
       created_at: string;
     };
 
-    // 1. Mock the API response for starting a practice session
+    // 1. Mock the API response for getting difficulty levels (needed for navigation flow)
+    await page.route(
+      'http://localhost:8000/api/v1/difficulty-levels',
+      async (route) => {
+        console.log(
+          '[Playwright Test] API call to /difficulty-levels intercepted.'
+        );
+
+        const mockDifficultyLevels = [
+          {
+            id: 1,
+            name: 'Mock Difficulty',
+            max_number: 100,
+            allow_carry: true,
+            allow_borrow: false,
+            operation_types: ['+'],
+            order: 1,
+          },
+        ];
+
+        await route.fulfill({ json: mockDifficultyLevels });
+      }
+    );
+
+    // 2. Mock the API response for starting a practice session
     await page.route(
       'http://localhost:8000/api/v1/practice/start',
       async (route) => {
@@ -35,7 +60,7 @@ test.describe('Columnar Calculation E2E - Zustand Architecture', () => {
         const postData = request.postDataJSON();
 
         expect(postData.difficulty_level_id).toBe(mockDifficultyLevelId);
-        expect(postData.total_questions).toBe(mockTotalQuestions);
+        expect(postData.total_questions).toBe(expectedTotalQuestions);
 
         const mockQuestion: MockQuestion = {
           id: mockQuestionId,
@@ -58,7 +83,7 @@ test.describe('Columnar Calculation E2E - Zustand Architecture', () => {
         const mockPracticeSessionResponse = {
           id: mockSessionId,
           difficulty_level_id: mockDifficultyLevelId,
-          total_questions_planned: mockTotalQuestions,
+          total_questions_planned: expectedTotalQuestions,
           questions: [mockQuestion],
           current_question_index: 0,
           score: 0,
@@ -72,7 +97,7 @@ test.describe('Columnar Calculation E2E - Zustand Architecture', () => {
       }
     );
 
-    // 2. Mock the API response for getting the next question
+    // 3. Mock the API response for getting the next question
     await page.route(
       `http://localhost:8000/api/v1/practice/question?session_id=${mockSessionId}`,
       async (route) => {
@@ -106,12 +131,12 @@ test.describe('Columnar Calculation E2E - Zustand Architecture', () => {
       }
     );
 
-    // 3. Navigate to the practice page with URL parameters for testing
+    // 4. Set up console logging
     page.on('console', (msg) =>
       console.log(`[Browser Console] ${msg.type()}: ${msg.text()}`)
-    ); // Log all browser console messages
+    );
 
-    // Use URL parameters instead of state for more reliable E2E testing
+    // 5. Navigate directly to practice page with URL parameters (now supported as fallback)
     const practiceUrl = `/practice?difficultyId=${mockDifficultyLevelId}&totalQuestions=${mockTotalQuestions}&difficultyName=Mock%20Difficulty&testMode=true`;
     console.log('[Playwright Test] Navigating to:', practiceUrl);
 

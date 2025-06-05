@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useNavigationStore, useNavigationFlow } from '../stores';
 import type { DifficultyLevel } from '../services/api';
 import { getDifficultyLevels } from '../services/api';
 import '../styles/DifficultySelectionPage.css'; // Corrected path
@@ -9,6 +10,9 @@ const DifficultySelectionPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  const { setDifficulty, navigateToStep, goBack } = useNavigationStore();
+  const { subject, mathOption } = useNavigationFlow();
 
   useEffect(() => {
     const fetchLevels = async () => {
@@ -31,14 +35,29 @@ const DifficultySelectionPage: React.FC = () => {
 
   const handleLevelSelect = (level: DifficultyLevel) => {
     console.log('Selected difficulty:', level);
-    // Navigate to a placeholder practice route, passing state
-    navigate('/practice', {
-      state: { difficultyLevelId: level.id, difficultyName: level.name },
-    });
+
+    // Update navigation store with selected difficulty
+    setDifficulty(level);
+    navigateToStep('practice');
+
+    // Navigate to practice page - no state needed
+    navigate('/practice');
   };
 
   const handleBackClick = () => {
-    navigate('/mathematics-options');
+    const previousStep = goBack();
+    if (previousStep) {
+      // Navigate based on the flow
+      if (subject === 'mathematics' && mathOption) {
+        navigate('/mathematics-options');
+      } else if (subject === 'english') {
+        navigate('/english-development');
+      } else if (subject === 'general-knowledge') {
+        navigate('/general-knowledge-development');
+      } else {
+        navigate('/subject-selection');
+      }
+    }
   };
 
   if (isLoading)

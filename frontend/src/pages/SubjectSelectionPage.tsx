@@ -1,12 +1,15 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useNavigationStore, useNavigationFlow } from '../stores';
 import '../styles/SubjectSelectionPage.css';
 import joeyThinking from '../assets/mascot/PrismJoey_Mascot_Thinking Pose.png';
 
 const SubjectSelectionPage: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const selectedGrade = location.state?.selectedGrade || '1';
+  const { setSubject, navigateToStep, goBack } = useNavigationStore();
+  const { grade } = useNavigationFlow();
+
+  const selectedGrade = grade || '1';
 
   const gradeLabels: { [key: string]: string } = {
     '1': '一年级',
@@ -18,19 +21,28 @@ const SubjectSelectionPage: React.FC = () => {
   };
 
   const handleMathematicsClick = () => {
-    navigate('/mathematics-options', { state: { selectedGrade } });
+    setSubject('mathematics');
+    navigateToStep('mathematics-options');
+    navigate('/mathematics-options');
   };
 
   const handleEnglishClick = () => {
-    navigate('/english-development', { state: { selectedGrade } });
+    setSubject('english');
+    navigateToStep('english-development');
+    navigate('/english-development');
   };
 
   const handleGeneralKnowledgeClick = () => {
-    navigate('/general-knowledge-development', { state: { selectedGrade } });
+    setSubject('general-knowledge');
+    navigateToStep('general-knowledge-development');
+    navigate('/general-knowledge-development');
   };
 
   const handleBackClick = () => {
-    navigate('/grade-selection');
+    const previousStep = goBack();
+    if (previousStep) {
+      navigate('/grade-selection');
+    }
   };
 
   return (
