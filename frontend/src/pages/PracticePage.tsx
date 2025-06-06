@@ -25,6 +25,7 @@ const PracticePage: React.FC = () => {
 
   const startPracticeSession = usePracticeStore((state) => state.startSession);
   const endPracticeSession = usePracticeStore((state) => state.endSession);
+  const resetSession = usePracticeStore((state) => state.resetSession);
   const setError = usePracticeStore((state) => state.setError);
   const loadNextQuestion = usePracticeStore((state) => state.loadNextQuestion);
   const setCurrentAnswerAction = usePracticeStore(
@@ -78,6 +79,16 @@ const PracticePage: React.FC = () => {
   const { error, feedback } = usePracticeUI();
   const { isSessionOver } = usePracticeSession();
   const { help, voiceHelp } = usePracticeHelp();
+
+  // Automatically navigate to the result page when the session is over
+  useEffect(() => {
+    if (isSessionOver) {
+      console.log(
+        '[PracticePage] Session is over. Navigating to results page.'
+      );
+      navigate('/result');
+    }
+  }, [isSessionOver, navigate]);
 
   // Get difficulty information from navigation store or URL parameters (fallback for testing)
   const urlParams = new URLSearchParams(location.search);
@@ -239,21 +250,38 @@ const PracticePage: React.FC = () => {
 
   // Handle next question
   const handleNextQuestion = useCallback(async () => {
-    try {
-      await loadNextQuestion();
-    } catch (err) {
-      console.error('[PracticePage] Failed to load next question:', err);
-      setError('加载下一题失败，请重试');
+    if (isSessionOver) {
+      navigate('/result');
+      return;
     }
-  }, [loadNextQuestion, setError]);
+
+    if (questionNumber >= practiceTotal) {
+      await endPracticeSession();
+    } else {
+      try {
+        await loadNextQuestion();
+      } catch (err) {
+        console.error('[PracticePage] Failed to load next question:', err);
+        setError('加载下一题失败，请重试');
+      }
+    }
+  }, [
+    isSessionOver,
+    navigate,
+    questionNumber,
+    practiceTotal,
+    endPracticeSession,
+    loadNextQuestion,
+    setError,
+  ]);
 
   // Handle exit practice
   const handleExitPractice = useCallback(() => {
-    // End both navigation session and practice session
-    endSession(); // Navigation store
-    endPracticeSession(); // Practice store
-    navigate(-1);
-  }, [endSession, endPracticeSession, navigate]);
+    // End navigation session tracking, but completely reset the practice state
+    endSession(); // from useNavigationStore
+    resetSession(); // from usePracticeStore
+    navigate('/difficulty-selection'); // Go back to difficulty selection
+  }, [endSession, resetSession, navigate]);
 
   // Columnar calculation handlers
   const handleColumnarAnswerChange = useCallback(
@@ -423,7 +451,10 @@ const PracticePage: React.FC = () => {
   // Early return for loading state
   if (storeIsLoading && !currentQuestion && !storeSessionId) {
     return (
-      <div className="practice-container loading-state">
+      <div
+        className="practice-container loading-state"
+        data-testid="loading-state"
+      >
         <div className="loading-message">正在准备练习...</div>
       </div>
     );
@@ -432,7 +463,7 @@ const PracticePage: React.FC = () => {
   // Early return for error state
   if (error && !currentQuestion) {
     return (
-      <div className="practice-container error-state">
+      <div className="practice-container error-state" data-testid="error-state">
         <div className="error-message">{error}</div>
         <button onClick={() => navigate(-1)} className="control-button">
           返回
@@ -444,7 +475,7 @@ const PracticePage: React.FC = () => {
   // Early return if no question (but session might exist)
   if (!currentQuestion && storeSessionId && !storeIsLoading) {
     return (
-      <div className="practice-container">
+      <div className="practice-container" data-testid="loading-question">
         <div className="loading-message">正在加载题目...</div>
       </div>
     );
@@ -466,7 +497,10 @@ const PracticePage: React.FC = () => {
   if (!currentQuestion && !effectiveDifficultyLevelId) {
     // Handles case where user lands here without params
     return (
-      <div className="practice-container error-state">
+      <div
+        className="practice-container error-state"
+        data-testid="error-state-no-params"
+      >
         <div className="error-message">缺少练习参数，请返回首页。</div>
         <button onClick={() => navigate('/')} className="control-button">
           返回首页
@@ -479,7 +513,7 @@ const PracticePage: React.FC = () => {
   // This might be redundant if the above !currentQuestion && storeSessionId handles it.
   if (!currentQuestion && storeSessionId) {
     return (
-      <div className="practice-container">
+      <div className="practice-container" data-testid="loading-question-alt">
         <div className="loading-message">题目加载中...</div>
       </div>
     );
@@ -491,7 +525,10 @@ const PracticePage: React.FC = () => {
       '[PracticePage] Critical error: No current question loaded despite passing guards.'
     );
     return (
-      <div className="practice-container error-state">
+      <div
+        className="practice-container error-state"
+        data-testid="critical-error-state"
+      >
         <div className="error-message">加载题目失败，请返回重试。</div>
         <button onClick={() => navigate(-1)} className="control-button">
           返回
@@ -505,9 +542,9 @@ const PracticePage: React.FC = () => {
   );
 
   return (
-    <div className="practice-container">
+    <div className="practice-container" data-testid="practice-page">
       <header className="practice-header">
-        <div className="progress-info">
+        <div className="progress-info" data-testid="progress-indicator">
           {effectiveDifficultyName && (
             <span className="difficulty-name-display">
               难度: {effectiveDifficultyName} |{' '}
@@ -515,7 +552,9 @@ const PracticePage: React.FC = () => {
           )}
           题目: {questionNumber} / {practiceTotal}
         </div>
-        <div className="score-info">得分: {score}</div>
+        <div className="score-info" data-testid="score-indicator">
+          得分: {score}
+        </div>
       </header>
 
       <main className="question-area">
@@ -533,6 +572,7 @@ const PracticePage: React.FC = () => {
           <div
             className="question-display question-enter-active"
             key={questionAnimationKey}
+            data-testid="question-content"
           >
             <div className="expression">
               {displayedExpression.map((part, index) => (
@@ -557,7 +597,12 @@ const PracticePage: React.FC = () => {
         )}
 
         {currentQuestion.question_type !== 'columnar' && (
-          <div className="user-answer-display">{currentAnswer || '_'}</div>
+          <div
+            className="user-answer-display"
+            data-testid="user-answer-display"
+          >
+            {currentAnswer || '_'}
+          </div>
         )}
 
         <FeedbackDisplay
@@ -574,6 +619,7 @@ const PracticePage: React.FC = () => {
               onClick={handleHelpButtonClick}
               className="help-button button-prism button-violet"
               disabled={help.isLoading || storeIsLoading}
+              data-testid="help-button"
             >
               {help.isLoading ? (
                 '加载中...'
@@ -593,6 +639,7 @@ const PracticePage: React.FC = () => {
               className="voice-help-button"
               disabled={voiceHelp.isLoading || storeIsLoading}
               title="语音提示"
+              data-testid="voice-help-button"
             >
               {voiceHelp.isLoading ? '🔄' : '🔊 语音提示'}
             </button>
@@ -631,6 +678,7 @@ const PracticePage: React.FC = () => {
             onClick={handleNextQuestion}
             className="control-button next-question-button button-interactive"
             disabled={storeIsLoading}
+            data-testid="next-question-button"
           >
             下一题
           </button>
@@ -638,6 +686,7 @@ const PracticePage: React.FC = () => {
         <button
           onClick={handleExitPractice}
           className="control-button exit-button button-interactive"
+          data-testid="exit-practice-button"
         >
           退出练习
         </button>

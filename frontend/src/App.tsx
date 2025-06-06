@@ -14,6 +14,7 @@ import EnglishDevelopmentPage from './pages/EnglishDevelopmentPage';
 import GeneralKnowledgeDevelopmentPage from './pages/GeneralKnowledgeDevelopmentPage';
 import DifficultySelectionPage from './pages/DifficultySelectionPage';
 import PracticePage from './pages/PracticePage'; // Import the PracticePage
+import ResultPage from './pages/ResultPage'; // Import the ResultPage
 import './App.css';
 
 // Placeholder for a summary page - can be developed later
@@ -69,7 +70,10 @@ function App() {
         <Route path="/practice" element={<PracticePage />} />
         {/* The above route '/practice' should be what DifficultySelectionPage navigates to. */}
 
-        {/* Add a route for the summary page, which PracticePage navigates to */}
+        {/* Add a route for the result page, which PracticePage navigates to */}
+        <Route path="/result" element={<ResultPage />} />
+
+        {/* Keep the old summary route for backwards compatibility */}
         <Route path="/summary" element={<PracticeSummaryPagePlaceholder />} />
 
         {/* Redirect any unknown paths to WelcomePage or a 404 component */}

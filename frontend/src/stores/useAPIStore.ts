@@ -1,14 +1,24 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import type { DifficultyLevel } from '../services/api';
+import { useCallback } from 'react';
+import type { DifficultyLevel, AnswerPayload } from '../services/api';
 import { getDifficultyLevels } from '../services/api';
+
+interface APIError {
+  type: 'network' | 'server' | 'validation' | 'timeout' | 'unknown';
+  message: string;
+  statusCode?: number;
+  retryable: boolean;
+  retryAfter?: number;
+}
 
 interface APIRequest {
   isLoading: boolean;
-  error: string | null;
+  error: APIError | null;
   lastFetched: number | null;
   data: unknown;
+  optimisticData?: unknown;
 }
 
 interface CacheEntry {
@@ -37,9 +47,13 @@ interface APIState {
 interface APIActions {
   // Request management
   setLoading: (key: string, loading: boolean) => void;
-  setError: (key: string, error: string | null) => void;
+  setError: (key: string, error: APIError | string | null) => void;
   setData: (key: string, data: unknown) => void;
   clearRequest: (key: string) => void;
+
+  // Optimistic updates
+  setOptimisticData: (key: string, data: unknown) => void;
+  clearOptimisticData: (key: string) => void;
 
   // Cache management
   setCacheEntry: (key: string, data: unknown, ttl?: number) => void;
@@ -106,7 +120,7 @@ export const useAPIStore = create<APIStore>()(
         });
       },
 
-      setError: (key: string, error: string | null) => {
+      setError: (key: string, error: APIError | string | null) => {
         set((state) => {
           if (!state.requests[key]) {
             state.requests[key] = {
@@ -116,7 +130,17 @@ export const useAPIStore = create<APIStore>()(
               data: null,
             };
           }
-          state.requests[key].error = error;
+
+          // Convert string error to APIError object
+          if (typeof error === 'string') {
+            state.requests[key].error = {
+              type: 'unknown',
+              message: error,
+              retryable: true,
+            };
+          } else {
+            state.requests[key].error = error;
+          }
           state.requests[key].isLoading = false;
         });
       },
@@ -142,6 +166,29 @@ export const useAPIStore = create<APIStore>()(
         set((state) => {
           delete state.requests[key];
           delete state.pendingRequests[key];
+        });
+      },
+
+      // Optimistic updates
+      setOptimisticData: (key: string, data: unknown) => {
+        set((state) => {
+          if (!state.requests[key]) {
+            state.requests[key] = {
+              isLoading: false,
+              error: null,
+              lastFetched: null,
+              data: null,
+            };
+          }
+          state.requests[key].optimisticData = data;
+        });
+      },
+
+      clearOptimisticData: (key: string) => {
+        set((state) => {
+          if (state.requests[key]) {
+            delete state.requests[key].optimisticData;
+          }
         });
       },
 
@@ -254,9 +301,28 @@ export const useAPIStore = create<APIStore>()(
             }
           }
 
-          // All attempts failed
-          const errorMessage = lastError?.message || 'Request failed';
-          get().setError(key, errorMessage);
+          // All attempts failed - create structured error
+          const apiError: APIError = {
+            type: lastError?.name === 'TypeError' ? 'network' : 'unknown',
+            message: lastError?.message || 'Request failed',
+            retryable: true,
+          };
+
+          // Add status code if available (for axios errors)
+          if (
+            lastError &&
+            typeof lastError === 'object' &&
+            'response' in lastError
+          ) {
+            const response = (lastError as { response?: { status?: number } })
+              .response;
+            if (response?.status) {
+              apiError.statusCode = response.status;
+              apiError.type = response.status >= 500 ? 'server' : 'validation';
+            }
+          }
+
+          get().setError(key, apiError);
 
           // Remove from pending requests
           set((state) => {
@@ -345,7 +411,16 @@ export const useAPIError = (key: string) =>
   useAPIStore((state) => state.requests[key]?.error || null);
 
 export const useAPIData = <T>(key: string) =>
-  useAPIStore((state) => state.requests[key]?.data as T | null);
+  useAPIStore((state) => {
+    const request = state.requests[key];
+    if (!request) return null;
+
+    // Return optimistic data if available, otherwise actual data
+    return (request.optimisticData || request.data) as T | null;
+  });
+
+export const useAPIErrorMessage = (key: string) =>
+  useAPIStore((state) => state.requests[key]?.error?.message || null);
 
 export const useDifficultyLevels = () => {
   const request = useAPIRequest('difficulty-levels');
@@ -358,6 +433,86 @@ export const useDifficultyLevels = () => {
     isLoading: request.isLoading,
     error: request.error,
     refetch: fetchDifficultyLevels,
+    refreshLevels: useCallback(
+      () => fetchDifficultyLevels(true),
+      [fetchDifficultyLevels]
+    ),
+  };
+};
+
+// Enhanced hook for practice session API calls
+export const usePracticeAPI = () => {
+  const { executeRequest, setOptimisticData, clearOptimisticData } =
+    useAPIStore();
+
+  return {
+    // Start a new practice session
+    startSession: useCallback(
+      async (difficultyId: number, totalQuestions: number) => {
+        return executeRequest(
+          `practice_session_start_${difficultyId}`,
+          async () => {
+            const { startPracticeSession } = await import('../services/api');
+            return startPracticeSession(difficultyId, totalQuestions);
+          },
+          {
+            enableCache: false, // Don't cache session creation
+            ttl: 0,
+          }
+        );
+      },
+      [executeRequest]
+    ),
+
+    // Submit an answer with optimistic updates
+    submitAnswer: useCallback(
+      async (payload: AnswerPayload, optimisticResult?: unknown) => {
+        const key = `submit_answer_${payload.question_id}`;
+
+        // Set optimistic data for immediate UI feedback
+        if (optimisticResult) {
+          setOptimisticData(key, optimisticResult);
+        }
+
+        try {
+          const result = await executeRequest(
+            key,
+            async () => {
+              const { submitAnswer } = await import('../services/api');
+              return submitAnswer(payload);
+            },
+            { enableCache: false }
+          );
+
+          // Clear optimistic data on success
+          clearOptimisticData(key);
+          return result;
+        } catch (error) {
+          // Revert optimistic update on error
+          clearOptimisticData(key);
+          throw error;
+        }
+      },
+      [executeRequest, setOptimisticData, clearOptimisticData]
+    ),
+
+    // Get next question with caching
+    getNextQuestion: useCallback(
+      async (sessionId: string) => {
+        return executeRequest(
+          `next_question_${sessionId}`,
+          async () => {
+            const { getNextQuestion } = await import('../services/api');
+            return getNextQuestion(sessionId);
+          },
+          {
+            enableCache: true,
+            ttl: 30 * 1000, // Cache for 30 seconds
+          }
+        );
+      },
+      [executeRequest]
+    ),
   };
 };
 

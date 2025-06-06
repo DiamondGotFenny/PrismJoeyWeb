@@ -50,7 +50,9 @@ export {
   useAPILoading,
   useAPIError,
   useAPIData,
+  useAPIErrorMessage,
   useDifficultyLevels,
+  usePracticeAPI,
   useAPIStats,
 } from './useAPIStore';
 

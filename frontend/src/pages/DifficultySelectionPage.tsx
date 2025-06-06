@@ -1,39 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useNavigationStore, useNavigationFlow } from '../stores';
-import type { DifficultyLevel } from '../services/api';
-import { getDifficultyLevels } from '../services/api';
+import { useNavigationStore, useDifficultyLevels } from '../stores';
 import '../styles/DifficultySelectionPage.css'; // Corrected path
 
 const DifficultySelectionPage: React.FC = () => {
-  const [levels, setLevels] = useState<DifficultyLevel[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { levels, isLoading, error, refetch } = useDifficultyLevels();
 
-  const { setDifficulty, navigateToStep, goBack } = useNavigationStore();
-  const { subject, mathOption } = useNavigationFlow();
+  const { setDifficulty, navigateToStep } = useNavigationStore();
 
   useEffect(() => {
-    const fetchLevels = async () => {
-      try {
-        setIsLoading(true);
-        const data = await getDifficultyLevels();
-        // Sort levels by 'order' field before setting state
-        data.sort((a, b) => a.order - b.order);
-        setLevels(data);
-        setError(null);
-      } catch (err) {
-        setError('无法加载难度级别，请稍后再试。');
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchLevels();
-  }, []);
+    // Fetch difficulty levels using the API store
+    refetch();
+  }, [refetch]);
 
-  const handleLevelSelect = (level: DifficultyLevel) => {
+  const handleLevelSelect = (level: NonNullable<typeof levels>[0]) => {
     console.log('Selected difficulty:', level);
 
     // Update navigation store with selected difficulty
@@ -45,19 +26,7 @@ const DifficultySelectionPage: React.FC = () => {
   };
 
   const handleBackClick = () => {
-    const previousStep = goBack();
-    if (previousStep) {
-      // Navigate based on the flow
-      if (subject === 'mathematics' && mathOption) {
-        navigate('/mathematics-options');
-      } else if (subject === 'english') {
-        navigate('/english-development');
-      } else if (subject === 'general-knowledge') {
-        navigate('/general-knowledge-development');
-      } else {
-        navigate('/subject-selection');
-      }
-    }
+    navigate('/mathematics-options');
   };
 
   if (isLoading)
@@ -65,7 +34,7 @@ const DifficultySelectionPage: React.FC = () => {
   if (error)
     return (
       <div className="error-message">
-        {error}{' '}
+        {error.message}{' '}
         <button className="back-button" onClick={handleBackClick}>
           返回
         </button>
@@ -76,7 +45,7 @@ const DifficultySelectionPage: React.FC = () => {
     <div className="difficulty-selection-container">
       <h1>选择练习难度</h1>
       <div className="difficulty-grid">
-        {levels.map((level) => (
+        {levels?.map((level) => (
           <button
             key={level.id}
             className="difficulty-button button-interactive"
@@ -85,7 +54,7 @@ const DifficultySelectionPage: React.FC = () => {
           >
             {level.name}
           </button>
-        ))}
+        )) || <div>暂无难度级别数据</div>}
       </div>
       <button
         className="back-button button-interactive"

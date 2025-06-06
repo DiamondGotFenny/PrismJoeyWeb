@@ -16,6 +16,7 @@ import {
   getQuestionHelp,
   playStreamingAudio,
 } from '../services/api';
+import { AxiosError } from 'axios';
 
 interface FeedbackState {
   isCorrect: boolean | null;
@@ -251,15 +252,24 @@ export const usePracticeStore = create<PracticeStore>()(
         if (!sessionId) return;
 
         try {
+          console.log('[usePracticeStore] Ending session, fetching summary...');
           const summaryData = await getPracticeSummary(sessionId);
+
           set((state) => {
             state.sessionDataForSummary = summaryData;
             state.isSessionOver = true;
+            state.isLoading = false;
           });
+
+          console.log(
+            '[usePracticeStore] Session summary fetched and state updated.'
+          );
         } catch (error) {
           console.error('Error fetching session summary:', error);
           set((state) => {
             state.isSessionOver = true;
+            state.error = '获取练习总结失败，但练习已完成。';
+            state.isLoading = false;
           });
         }
       },
@@ -275,9 +285,20 @@ export const usePracticeStore = create<PracticeStore>()(
         const sessionId = get().sessionId;
         if (!sessionId) return;
 
+        // Check if we are about to exceed the total number of questions
+        if (get().questionNumber >= get().totalQuestions) {
+          console.log(
+            '[usePracticeStore] Attempted to load next question, but session should be over.'
+          );
+          await get().endSession();
+          return;
+        }
+
         try {
           set((state) => {
             state.isLoading = true;
+            // Increment question number when we are actually loading the next one
+            state.questionNumber += 1;
           });
 
           const question = await getNextQuestion(sessionId);
@@ -337,11 +358,23 @@ export const usePracticeStore = create<PracticeStore>()(
             }, 100);
           }
         } catch (error) {
-          set((state) => {
-            state.error = '获取题目失败，请稍后再试。';
-            state.isLoading = false;
-          });
-          console.error('Error loading next question:', error);
+          const axiosError = error as AxiosError;
+          if (axiosError.response && axiosError.response.status === 404) {
+            console.log(
+              '[usePracticeStore] No more questions. Ending session.'
+            );
+            set((state) => {
+              state.isSessionOver = true;
+              state.isLoading = false;
+            });
+            await get().endSession();
+          } else {
+            set((state) => {
+              state.error = '获取题目失败，请稍后再试。';
+              state.isLoading = false;
+            });
+            console.error('Error loading next question:', error);
+          }
         }
       },
 
@@ -420,17 +453,23 @@ export const usePracticeStore = create<PracticeStore>()(
             result.correct_answer
           );
 
-          // Auto-advance to next question after delay
-          setTimeout(async () => {
-            if (get().questionNumber < get().totalQuestions) {
-              set((draft) => {
-                draft.questionNumber += 1;
-              });
-              await get().loadNextQuestion();
-            } else {
-              await get().endSession();
-            }
-          }, 2000);
+          // If this was the last question, end the session.
+          // The UI will be responsible for showing a "Next" button that loads the next question
+          // or a "Finish" button if the session is over.
+          // The navigation to the result page is handled by a useEffect in PracticePage.
+          if (get().questionNumber >= get().totalQuestions) {
+            set((draft) => {
+              draft.isSessionOver = true;
+            });
+            await get().endSession();
+          } else {
+            // This part is for advancing to the next question number if needed,
+            // but the actual call to loadNextQuestion will be triggered by user action.
+            set(() => {
+              // We don't automatically increment here anymore.
+              // The user will click "Next Question" which handles the increment and load.
+            });
+          }
         } catch (error) {
           set((state) => {
             state.error = '提交答案失败，请稍后再试。';
