@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useNavigationStore, useNavigationFlow } from '../stores';
 import NumericKeypad from '../components/NumericKeypad';
@@ -20,6 +20,7 @@ import {
 
 const ExerciseSessionPage: React.FC = () => {
   const navigate = useNavigate();
+  const sessionInitStarted = useRef(false);
   const { gradeId, subjectId } = useParams<{
     gradeId: string;
     subjectId: string;
@@ -142,8 +143,14 @@ const ExerciseSessionPage: React.FC = () => {
       `[ExerciseSessionPage] Session Init Effect. Effective Difficulty ID: ${effectiveDifficultyLevelId}, Existing Session ID: ${storeSessionId}, IsLoading: ${storeIsLoading}, Test Mode: ${testMode}`
     );
 
-    if (effectiveDifficultyLevelId && !storeSessionId && !storeIsLoading) {
+    if (
+      effectiveDifficultyLevelId &&
+      !storeSessionId &&
+      !storeIsLoading &&
+      !sessionInitStarted.current
+    ) {
       const initializeSession = async () => {
+        sessionInitStarted.current = true;
         console.log(
           `[ExerciseSessionPage] Condition met: Attempting to start session. Current isLoading: ${usePracticeStore.getState().isLoading}`
         );

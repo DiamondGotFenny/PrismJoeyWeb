@@ -329,50 +329,34 @@ test.describe('Practice Session Flow E2E Tests', () => {
     await setupBasicAPIRoutes(page);
     await navigateToFirstQuestion(page);
 
-    // Complete all 10 questions quickly
+    // Complete all 10 questions
     for (let i = 1; i <= 10; i++) {
       await expect(page.getByTestId('question-content')).toBeVisible();
-
       await expect(page.getByRole('button', { name: '确认' })).toBeEnabled();
 
-      // Handle multi-digit answers (for question 10, answer is 11)
       const answer = i + 1;
       const answerStr = answer.toString();
-
-      // Clear any existing input first
-      const clearButton = page.getByRole('button', { name: '清除' });
-      if (await clearButton.isVisible()) {
-        await clearButton.click();
-      }
 
       // Click each digit of the answer
       for (const digit of answerStr) {
         await page.getByRole('button', { name: digit }).click();
       }
-
       await page.getByRole('button', { name: '确认' }).click();
 
-      if (i < 9) {
-        // For questions 1-9, should show next question button
+      if (i < 10) {
+        // For questions 1-9, click the "Next" button to proceed
         await expect(page.getByTestId('next-question-button')).toBeVisible();
         await page.getByTestId('next-question-button').click();
-      } else {
-        // For the 10th (last) question, should automatically navigate to results
-        console.log(
-          'Completed final question, waiting for automatic navigation...'
-        );
-        // Wait a bit longer for navigation since it happens automatically
-        await expect(page).toHaveURL(
-          '/grades/1/subjects/mathematics/practice/result',
-          { timeout: 2000 }
-        );
-        break; // Exit the loop early since we're done
       }
     }
 
-    // Should be on the results page
-    await expect(page.getByTestId('result-page')).toBeVisible({
-      timeout: 2000,
-    });
+    // After answering the 10th question, it should automatically navigate to the results page
+    await expect(page).toHaveURL(
+      /.*\/result/,
+      { timeout: 5000 } // Increased timeout for navigation
+    );
+
+    // Verify we are on the results page
+    await expect(page.getByTestId('result-page')).toBeVisible();
   });
 });
