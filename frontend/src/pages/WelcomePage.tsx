@@ -8,7 +8,7 @@ const WelcomePage: React.FC = () => {
   const navigate = useNavigate(); // Initialize useNavigate
 
   const handleStartLearning = () => {
-    navigate('/grade-selection'); // Navigate to grade selection first
+    navigate('/grades'); // Navigate to grade selection first
   };
 
   const handleContinueLast = () => {

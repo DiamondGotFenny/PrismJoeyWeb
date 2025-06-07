@@ -1,0 +1,115 @@
+# Overview
+This document outlines the product requirements for "PrismJoey (七彩阶梯)," an interactive educational desktop application.
+
+The product aims to solve the problem of making math practice engaging and effective for young elementary school students. It is designed primarily for these students, with parents as secondary users who can monitor their child's progress. The value lies in providing a fun, interactive, and rewarding learning experience that improves core arithmetic skills through instant feedback and a child-friendly interface, with a long-term vision to expand into other subjects.
+
+# Core Features
+- **Math Practice Module (MVP):**
+  - **What it does:** Allows students to practice 100-within addition and subtraction problems.
+  - **Why it's important:** This is the core feature for achieving the primary goal of improving arithmetic skills.
+  - **How it works:** Users choose a difficulty level. The system then generates random math problems. Users input answers via a large on-screen number pad. Immediate visual and textual feedback is provided for each answer.
+
+- **Difficulty Selection:**
+  - **What it does:** Provides a clear selection of difficulty levels, such as "Addition/subtraction within 10," "Addition/subtraction within 20 with carrying/borrowing," etc.
+  - **Why it's important:** It allows the application to cater to students at different stages of learning and enables progressive skill development.
+  - **How it works:** Before a practice session, the user is presented with a dedicated screen listing all available difficulty levels to choose from.
+
+- **Instant Feedback & Motivation:**
+  - **What it does:** Delivers immediate feedback on every answer, using encouraging words, sounds, and simple animations (e.g., stars for a correct answer, a gentle shake for an incorrect one).
+  - **Why it's important:** This system is crucial for keeping children engaged, reinforcing correct answers, and reducing the frustration associated with mistakes.
+  - **How it works:** Upon answer submission, the UI instantly displays a message like "Great job! 🎉" or "Let's try that again 🤔". If the answer is wrong, the correct one is shown.
+
+- **Practice Summary:**
+  - **What it does:** At the end of a session, it displays a report with statistics like total questions, correct answers, accuracy rate, and time taken.
+  - **Why it's important:** It allows both students and parents to track performance and see progress over time.
+  - **How it works:** A summary screen appears after the final question, presenting the session's statistics along with a positive, encouraging comment.
+
+# User Experience
+- **User Personas:**
+  - **Primary:** A young elementary school student who benefits from a simple, visually stimulating, and highly interactive user interface.
+  - **Secondary:** A parent who wants to easily monitor their child's learning progress.
+
+- **Key User Flows:**
+  1. **Starting a Session:** The user opens the application, sees a welcoming main screen, and clicks "Start Learning."
+  2. **Practicing:** The user selects a difficulty level, which leads to the practice screen where the first question is displayed.
+  3. **Answering a Question:** The user inputs their answer using the large on-screen keypad and clicks the "Confirm" button.
+  4. **Receiving Feedback:** The system validates the answer and provides immediate feedback. The user then clicks "Next Question" to continue.
+  5. **Completing a Session:** After the last question, a practice summary is displayed. The user can then choose to start another session or return to the main menu.
+
+- **UI/UX Considerations:**
+  - **Visuals:** A bright, friendly, and cartoonish aesthetic with a "rainbow" and "ladder" theme.
+  - **Interface:** The UI will feature large, easy-to-tap buttons and clear, large-print text. A custom on-screen number pad is preferred over a standard input field.
+  - **Interactivity:** Micro-interactions and animations will be used to make the experience feel dynamic and responsive.
+  - **Sound:** Child-friendly sound effects will accompany feedback and actions, with an easily accessible option to mute all sounds.
+  - **Accessibility:** The application will support keyboard navigation, offer a high-contrast mode, and use ARIA labels for screen reader compatibility.
+
+# Technical Architecture
+- **System Components:**
+  - **Frontend:** React, TypeScript, Vite, packaged as a desktop app using Electron. p5.js or Anime.js may be used for advanced animations.
+  - **Backend:** FastAPI (Python 3.10+).
+  - **Database:** SQLite for local MVP storage; PostgreSQL planned for future cloud-based features.
+  - **ORM:** SQLAlchemy 2.0+.
+  - **Data Validation:** Pydantic v2.
+
+- **Data Models:**
+  - `DifficultyLevel`: (id, name, code, max_number, allow_carry, allow_borrow, operation_types)
+  - `Question`: (id, session_id, operand1, operand2, operation, correct_answer)
+  - `Answer`: (id, question_id, user_answer, is_correct, time_spent)
+  - `PracticeSession`: (id, difficulty_level_id, total_questions, correct_answers, start_time, end_time)
+
+- **APIs and Integrations:**
+  - **Internal REST API:**
+    - `POST /api/v1/practice/start`: Initializes a new practice session.
+    - `GET /api/v1/practice/question`: Retrieves the next question for the session.
+    - `POST /api/v1/practice/answer`: Submits an answer for validation.
+    - `GET /api/v1/practice/summary`: Gets the results of the completed session.
+    - `GET /api/v1/difficulty/levels`: Fetches the list of all available difficulty levels.
+  - **Future Integrations:** Azure Speech Services (for STT/TTS), Open Router (for LLM-powered hints).
+
+- **Infrastructure Requirements:**
+  - **MVP:** The application will be a self-contained desktop app that can run fully offline.
+  - **Future:** A cloud server will be required to host the FastAPI backend and PostgreSQL database to support user accounts and data sync.
+
+# Development Roadmap
+- **Phase 1: Foundational MVP**
+  - **Backend:** Set up the FastAPI project. Implement data models and all API endpoints for managing difficulty, starting sessions, getting questions, and validating answers.
+  - **Frontend:** Set up the React/Electron project. Build the primary UI screens (Welcome, Difficulty Select, Practice). Implement the core practice loop: fetch questions, handle input, submit answers, and display basic feedback.
+
+- **Phase 2: Enhanced Experience & Polish**
+  - **Frontend:** Implement the full UI/UX design, including all animations, custom fonts, the on-screen keypad, and sound effects. Build the Practice Summary screen and integrate it with the backend.
+  - **Backend:** Implement the logic for the practice summary endpoint. Refine the question generation algorithm to ensure variety.
+
+- **Phase 3: Future Enhancements (Post-MVP)**
+  - **Features:** A "mistake book" for reviewing incorrect answers, detailed learning reports, user accounts with progress saving, and gamification elements like badges.
+  - **AI Integration:** Voice input (STT), read-aloud questions (TTS), smart hints (LLM), and personalized learning paths.
+
+# Logical Dependency Chain
+1.  **Backend Foundation:** The first step is to build the backend APIs for difficulty levels and question generation. This is the bedrock the frontend will be built upon.
+2.  **Frontend Scaffolding & Core Loop:** With the basic APIs available, the frontend structure can be built to handle the main user flow: selecting difficulty, fetching and displaying a question.
+3.  **Backend Answer Validation:** Implement the answer validation endpoint in the backend. This centralizes the core logic.
+4.  **Full End-to-End MVP:** Connect the frontend input to the backend validation API and display the result. This completes the core functionality, creating a usable, end-to-end product.
+5.  **UX/UI Polish:** With the core logic stable, layer on the full user experience: animations, sounds, and refined UI components.
+6.  **Advanced Features:** Build subsequent features like the mistake book and user history on top of the stable, polished MVP foundation.
+
+# Risks and Mitigations
+- **Risk:** The UI/UX may not be sufficiently engaging for young children.
+  - **Mitigation:** Conduct early and frequent user testing with children in the target age group. Use their feedback to iterate on the design and interactions.
+
+- **Risk:** Scope creep could delay the delivery of the MVP.
+  - **Mitigation:** Adhere strictly to the phased roadmap. Defer non-essential features (e.g., AI, detailed reports, complex animations) until after the core product is built and stable.
+
+- **Risk:** Technical challenges related to implementing complex animations.
+  - **Mitigation:** For the MVP, prioritize simpler CSS-based animations. Introduce more advanced animation libraries in a later phase, allocating specific time for research and development.
+
+# Appendix
+- **Visual Design Specifications:**
+  - **Color Palette:** Primary colors are a rainbow set (`#FF6B6B`, `#FFA500`, `#FFD93D`, `#6BCF7F`, `#4ECDC4`, `#5A67D8`, `#9F7AEA`). Functional colors for success (`#48BB78`) and error (`#F56565`).
+  - **Fonts:** "Fredoka One" or "Comic Neue" for headings. "Roboto Mono" or "Space Mono" for numbers.
+
+- **Interaction Design Specifications:**
+  - **Button Click:** A scaling effect (0.95 -> 1.05 -> 1).
+  - **Correct Answer:** A bouncing green checkmark animation with a particle effect.
+  - **Incorrect Answer:** A gentle side-to-side shake animation with a fading red 'X'.
+
+- **Data Privacy:**
+  - For the MVP, all user data is stored exclusively on the user's local machine. The application does not require an internet connection to function. 

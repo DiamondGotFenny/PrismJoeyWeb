@@ -1,15 +1,16 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useNavigationStore, useNavigationFlow } from '../stores';
 import '../styles/SubjectSelectionPage.css';
 import joeyThinking from '../assets/mascot/PrismJoey_Mascot_Thinking Pose.png';
 
 const SubjectSelectionPage: React.FC = () => {
   const navigate = useNavigate();
+  const { gradeId } = useParams<{ gradeId: string }>();
   const { setSubject, navigateToStep, goBack } = useNavigationStore();
   const { grade } = useNavigationFlow();
 
-  const selectedGrade = grade || '1';
+  const selectedGrade = gradeId || grade || '1';
 
   const gradeLabels: { [key: string]: string } = {
     '1': '一年级',
@@ -20,29 +21,21 @@ const SubjectSelectionPage: React.FC = () => {
     '6': '六年级',
   };
 
-  const handleMathematicsClick = () => {
-    setSubject('mathematics');
-    navigateToStep('mathematics-options');
-    navigate('/mathematics-options');
-  };
-
-  const handleEnglishClick = () => {
-    setSubject('english');
-    navigateToStep('english-development');
-    navigate('/english-development');
-  };
-
-  const handleGeneralKnowledgeClick = () => {
-    setSubject('general-knowledge');
-    navigateToStep('general-knowledge-development');
-    navigate('/general-knowledge-development');
+  const handleSubjectSelect = (subjectId: string) => {
+    setSubject(subjectId);
+    if (subjectId === 'mathematics') {
+      navigateToStep('mathematics-options');
+    } else if (subjectId === 'english') {
+      navigateToStep('english-development');
+    } else if (subjectId === 'general-knowledge') {
+      navigateToStep('general-knowledge-development');
+    }
+    navigate(`/grades/${selectedGrade}/subjects/${subjectId}`);
   };
 
   const handleBackClick = () => {
-    const previousStep = goBack();
-    if (previousStep) {
-      navigate('/grade-selection');
-    }
+    goBack();
+    navigate(`/grades`);
   };
 
   return (
@@ -68,7 +61,7 @@ const SubjectSelectionPage: React.FC = () => {
         <div className="subjects-grid">
           <button
             className="subject-card subject-math"
-            onClick={handleMathematicsClick}
+            onClick={() => handleSubjectSelect('mathematics')}
           >
             <div className="subject-icon">📊</div>
             <h2>数学</h2>
@@ -77,7 +70,7 @@ const SubjectSelectionPage: React.FC = () => {
 
           <button
             className="subject-card subject-english"
-            onClick={handleEnglishClick}
+            onClick={() => handleSubjectSelect('english')}
           >
             <div className="subject-icon">📚</div>
             <h2>英语</h2>
@@ -86,7 +79,7 @@ const SubjectSelectionPage: React.FC = () => {
 
           <button
             className="subject-card subject-general"
-            onClick={handleGeneralKnowledgeClick}
+            onClick={() => handleSubjectSelect('general-knowledge')}
           >
             <div className="subject-icon">🌟</div>
             <h2>通识知识</h2>

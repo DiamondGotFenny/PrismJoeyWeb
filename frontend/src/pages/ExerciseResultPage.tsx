@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePracticeStore, useNavigationStore } from '../stores';
-import '../styles/ResultPage.css';
+import '../styles/ExerciseResultPage.css';
 
-const ResultPage: React.FC = () => {
+const ExerciseResultPage: React.FC = () => {
   const navigate = useNavigate();
   const sessionDataForSummary = usePracticeStore(
     (state) => state.sessionDataForSummary
@@ -17,28 +17,30 @@ const ResultPage: React.FC = () => {
     // If no summary data, redirect back to difficulty selection
     if (!sessionDataForSummary && !isLoading) {
       console.log(
-        '[ResultPage] No session data found, redirecting to difficulty selection'
+        '[ExerciseResultPage] No session data found, redirecting to difficulty selection'
       );
       navigate('/difficulty-selection');
     }
   }, [sessionDataForSummary, isLoading, navigate]);
 
   const handleTryAgain = () => {
-    console.log('[ResultPage] Try again clicked, resetting stores');
+    console.log('[ExerciseResultPage] Try again clicked, resetting stores');
     resetSession();
     resetNavigation();
     navigate('/grade-selection');
   };
 
   const handleBackToHome = () => {
-    console.log('[ResultPage] Back to home clicked, resetting stores');
+    console.log('[ExerciseResultPage] Back to home clicked, resetting stores');
     resetSession();
     resetNavigation();
     navigate('/');
   };
 
   const handleBackToDifficulty = () => {
-    console.log('[ResultPage] Back to difficulty clicked, resetting stores');
+    console.log(
+      '[ExerciseResultPage] Back to difficulty clicked, resetting stores'
+    );
     resetSession();
     resetNavigation();
     navigate('/difficulty-selection');
@@ -225,4 +227,4 @@ const ResultPage: React.FC = () => {
   );
 };
 
-export default ResultPage;
+export default ExerciseResultPage;

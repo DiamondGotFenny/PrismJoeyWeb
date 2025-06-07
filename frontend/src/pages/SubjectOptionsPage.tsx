@@ -1,15 +1,19 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useNavigationStore, useNavigationFlow } from '../stores';
-import '../styles/MathematicsOptionsPage.css';
+import '../styles/SubjectOptionsPage.css';
 import joeyWaving from '../assets/mascot/PrismJoey_Mascot_Waving Pose.png';
 
-const MathematicsOptionsPage: React.FC = () => {
+const SubjectOptionsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { gradeId, subjectId } = useParams<{
+    gradeId: string;
+    subjectId: string;
+  }>();
   const { setMathOption, navigateToStep, goBack } = useNavigationStore();
   const { grade } = useNavigationFlow();
 
-  const selectedGrade = grade || '1';
+  const selectedGrade = gradeId || grade || '1';
 
   const gradeLabels: { [key: string]: string } = {
     '1': '一年级',
@@ -21,12 +25,14 @@ const MathematicsOptionsPage: React.FC = () => {
   };
 
   const handlePracticeExercisesClick = () => {
-    if (selectedGrade === '1') {
+    if (selectedGrade === '1' && subjectId === 'mathematics') {
       setMathOption('practice-exercises');
       navigateToStep('difficulty-selection');
-      navigate('/difficulty-selection');
+      navigate(
+        `/grades/${selectedGrade}/subjects/${subjectId}/practice/difficulty`
+      );
     } else {
-      alert(`${gradeLabels[selectedGrade]}练习题正在开发中...`);
+      alert(`${gradeLabels[selectedGrade]}${subjectName}练习题正在开发中...`);
     }
   };
 
@@ -43,36 +49,43 @@ const MathematicsOptionsPage: React.FC = () => {
   };
 
   const handleBackClick = () => {
-    const previousStep = goBack();
-    if (previousStep) {
-      navigate('/subject-selection');
-    }
+    goBack();
+    navigate(`/grades/${selectedGrade}/subjects`);
   };
 
+  const subjectNames: { [key: string]: string } = {
+    mathematics: '数学',
+    chinese: '语文',
+    english: '英语',
+  };
+  const subjectName = subjectId
+    ? subjectNames[subjectId] || '未知学科'
+    : '学科';
+
   return (
-    <div className="mathematics-options-container">
-      <header className="mathematics-options-header">
+    <div className="subject-options-container">
+      <header className="subject-options-header">
         <button className="back-button" onClick={handleBackClick}>
           ← 返回
         </button>
         <div className="title-section">
-          <h1 className="page-title">数学学习</h1>
+          <h1 className="page-title">{subjectName}学习</h1>
           <div className="grade-indicator">
-            {gradeLabels[selectedGrade]} 数学内容
+            {gradeLabels[selectedGrade]} {subjectName}内容
           </div>
         </div>
         <img src={joeyWaving} alt="Joey Waving" className="mascot-waving" />
       </header>
 
-      <main className="mathematics-options-main">
+      <main className="subject-options-main">
         <div className="math-options-grid">
           <button
-            className={`math-option-card practice-exercises ${selectedGrade === '1' ? 'available' : 'developing'}`}
+            className={`math-option-card practice-exercises ${selectedGrade === '1' && subjectId === 'mathematics' ? 'available' : 'developing'}`}
             onClick={handlePracticeExercisesClick}
           >
             <div className="math-option-icon">📝</div>
             <h3>练习题</h3>
-            <p>基础数学练习题</p>
+            <p>基础{subjectName}练习题</p>
             {selectedGrade !== '1' && (
               <div className="developing-badge">开发中</div>
             )}
@@ -93,8 +106,8 @@ const MathematicsOptionsPage: React.FC = () => {
             onClick={handleMathScenariosClick}
           >
             <div className="math-option-icon">🏪</div>
-            <h3>小数学应用场景</h3>
-            <p>实际生活中的数学应用</p>
+            <h3>小{subjectName}应用场景</h3>
+            <p>实际生活中的{subjectName}应用</p>
             <div className="developing-badge">开发中</div>
           </button>
 
@@ -103,18 +116,18 @@ const MathematicsOptionsPage: React.FC = () => {
             onClick={handleFunMathClick}
           >
             <div className="math-option-icon">🎮</div>
-            <h3>趣味数学</h3>
-            <p>有趣的数学游戏</p>
+            <h3>趣味{subjectName}</h3>
+            <p>有趣的{subjectName}游戏</p>
             <div className="developing-badge">开发中</div>
           </button>
         </div>
       </main>
 
-      <footer className="mathematics-options-footer">
-        <p>选择你感兴趣的数学学习方式！</p>
+      <footer className="subject-options-footer">
+        <p>选择你感兴趣的{subjectName}学习方式！</p>
       </footer>
     </div>
   );
 };
 
-export default MathematicsOptionsPage;
+export default SubjectOptionsPage;

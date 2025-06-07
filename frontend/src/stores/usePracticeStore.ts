@@ -235,7 +235,7 @@ export const usePracticeStore = create<PracticeStore>()(
           await get().loadNextQuestion();
 
           set((state) => {
-            state.questionNumber = 1;
+            // Don't override questionNumber - loadNextQuestion already set it correctly
             state.isLoading = false;
           });
         } catch (error) {
@@ -286,9 +286,13 @@ export const usePracticeStore = create<PracticeStore>()(
         if (!sessionId) return;
 
         // Check if we are about to exceed the total number of questions
-        if (get().questionNumber >= get().totalQuestions) {
+        const currentQuestionNumber = get().questionNumber;
+        if (currentQuestionNumber >= get().totalQuestions) {
           console.log(
-            '[usePracticeStore] Attempted to load next question, but session should be over.'
+            '[usePracticeStore] Attempted to load next question, but session should be over. Current:',
+            currentQuestionNumber,
+            'Total:',
+            get().totalQuestions
           );
           await get().endSession();
           return;
@@ -297,8 +301,7 @@ export const usePracticeStore = create<PracticeStore>()(
         try {
           set((state) => {
             state.isLoading = true;
-            // Increment question number when we are actually loading the next one
-            state.questionNumber += 1;
+            // Don't increment question number here - do it after successful load
           });
 
           const question = await getNextQuestion(sessionId);
@@ -316,6 +319,8 @@ export const usePracticeStore = create<PracticeStore>()(
             state.currentQuestion = question;
             state.questionAnimationKey += 1;
             state.currentAnswer = '';
+            // Increment question number only after successful load
+            state.questionNumber += 1;
 
             // Initialize columnar data for columnar questions
             if (question.question_type === 'columnar') {
@@ -453,22 +458,12 @@ export const usePracticeStore = create<PracticeStore>()(
             result.correct_answer
           );
 
-          // If this was the last question, end the session.
-          // The UI will be responsible for showing a "Next" button that loads the next question
-          // or a "Finish" button if the session is over.
           // The navigation to the result page is handled by a useEffect in PracticePage.
           if (get().questionNumber >= get().totalQuestions) {
             set((draft) => {
               draft.isSessionOver = true;
             });
             await get().endSession();
-          } else {
-            // This part is for advancing to the next question number if needed,
-            // but the actual call to loadNextQuestion will be triggered by user action.
-            set(() => {
-              // We don't automatically increment here anymore.
-              // The user will click "Next Question" which handles the increment and load.
-            });
           }
         } catch (error) {
           set((state) => {

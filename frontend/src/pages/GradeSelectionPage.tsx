@@ -22,8 +22,8 @@ const GradeSelectionPage: React.FC = () => {
     setGrade(grade);
     navigateToStep('subject-selection');
 
-    // Navigate to subject selection - no state needed
-    navigate('/subject-selection');
+    // Navigate to subject selection
+    navigate(`/grades/${grade}/subjects`);
   };
 
   const handleBackClick = () => {

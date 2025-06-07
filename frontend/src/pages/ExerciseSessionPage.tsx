@@ -1,12 +1,12 @@
 import React, { useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useNavigationStore, useNavigationFlow } from '../stores';
 import NumericKeypad from '../components/NumericKeypad';
 import FeedbackDisplay from '../components/FeedbackDisplay';
 import ColumnarCalculation from '../components/ColumnarCalculation';
 import HelpBox from '../components/HelpBox';
 import MathIcon from '../components/MathIcon';
-import '../styles/PracticePage.css';
+import '../styles/ExerciseSessionPage.css';
 import joeyThinking from '../assets/mascot/PrismJoey_Mascot_Thinking Pose.png';
 import {
   usePracticeStore,
@@ -18,8 +18,12 @@ import {
   usePracticeHelp,
 } from '../stores';
 
-const PracticePage: React.FC = () => {
+const ExerciseSessionPage: React.FC = () => {
   const navigate = useNavigate();
+  const { gradeId, subjectId } = useParams<{
+    gradeId: string;
+    subjectId: string;
+  }>();
   const { startSession, endSession } = useNavigationStore();
   const { difficulty, totalQuestions } = useNavigationFlow();
 
@@ -84,11 +88,14 @@ const PracticePage: React.FC = () => {
   useEffect(() => {
     if (isSessionOver) {
       console.log(
-        '[PracticePage] Session is over. Navigating to results page.'
+        '[ExerciseSessionPage] Session is over. Navigating to results page.'
       );
-      navigate('/result');
+      // Small delay to ensure state has settled
+      setTimeout(() => {
+        navigate(`/grades/${gradeId}/subjects/${subjectId}/practice/result`);
+      }, 100);
     }
-  }, [isSessionOver, navigate]);
+  }, [isSessionOver, navigate, gradeId, subjectId]);
 
   // Get difficulty information from navigation store or URL parameters (fallback for testing)
   const urlParams = new URLSearchParams(location.search);
@@ -121,7 +128,7 @@ const PracticePage: React.FC = () => {
         }
       : null;
 
-  console.log('[PracticePage] Component Render. Effective values:', {
+  console.log('[ExerciseSessionPage] Component Render. Effective values:', {
     difficultyLevelId: effectiveDifficultyLevelId,
     totalQuestions: effectiveTotalQuestions,
     storeSessionId,
@@ -132,13 +139,13 @@ const PracticePage: React.FC = () => {
 
   useEffect(() => {
     console.log(
-      `[PracticePage] Session Init Effect. Effective Difficulty ID: ${effectiveDifficultyLevelId}, Existing Session ID: ${storeSessionId}, IsLoading: ${storeIsLoading}, Test Mode: ${testMode}`
+      `[ExerciseSessionPage] Session Init Effect. Effective Difficulty ID: ${effectiveDifficultyLevelId}, Existing Session ID: ${storeSessionId}, IsLoading: ${storeIsLoading}, Test Mode: ${testMode}`
     );
 
     if (effectiveDifficultyLevelId && !storeSessionId && !storeIsLoading) {
       const initializeSession = async () => {
         console.log(
-          `[PracticePage] Condition met: Attempting to start session. Current isLoading: ${usePracticeStore.getState().isLoading}`
+          `[ExerciseSessionPage] Condition met: Attempting to start session. Current isLoading: ${usePracticeStore.getState().isLoading}`
         );
         try {
           // Start navigation session tracking
@@ -150,14 +157,14 @@ const PracticePage: React.FC = () => {
             effectiveTotalQuestions
           );
           console.log(
-            '[PracticePage] startSession call completed. New Session ID (from store check): ',
+            '[ExerciseSessionPage] startSession call completed. New Session ID (from store check): ',
             usePracticeStore.getState().sessionId,
             'isLoading (from store check):',
             usePracticeStore.getState().isLoading
           );
         } catch (err) {
           console.error(
-            '[PracticePage] Failed to start session from useEffect:',
+            '[ExerciseSessionPage] Failed to start session from useEffect:',
             err
           );
           setError('启动练习失败，请重试。');
@@ -166,12 +173,17 @@ const PracticePage: React.FC = () => {
       initializeSession();
     } else if (storeIsLoading) {
       console.log(
-        '[PracticePage] Session initialization in progress or component is generally loading.'
+        '[ExerciseSessionPage] Session initialization in progress or component is generally loading.'
       );
     } else if (storeSessionId) {
-      console.log('[PracticePage] Session already exists. ID:', storeSessionId);
+      console.log(
+        '[ExerciseSessionPage] Session already exists. ID:',
+        storeSessionId
+      );
     } else if (!effectiveDifficultyLevelId) {
-      console.log('[PracticePage] No effective difficulty level ID provided.');
+      console.log(
+        '[ExerciseSessionPage] No effective difficulty level ID provided.'
+      );
       if (!testMode) {
         setError('请先选择难度级别。');
       }
@@ -179,9 +191,9 @@ const PracticePage: React.FC = () => {
 
     // Cleanup function
     return () => {
-      console.log('[PracticePage] useEffect cleanup triggered.');
+      console.log('[ExerciseSessionPage] useEffect cleanup triggered.');
       console.log(
-        '[PracticePage] Cleanup: For now, not calling resetSession() here to prevent loops. Session end/reset should be handled by navigation or explicit actions.'
+        '[ExerciseSessionPage] Cleanup: For now, not calling resetSession() here to prevent loops. Session end/reset should be handled by navigation or explicit actions.'
       );
     };
   }, [
@@ -198,21 +210,24 @@ const PracticePage: React.FC = () => {
   // Handle keypad input for regular questions
   const handleKeypadDigit = useCallback(
     (digit: string) => {
-      console.log('[PracticePage] handleKeypadDigit called with:', digit);
       console.log(
-        '[PracticePage] currentQuestion?.question_type:',
+        '[ExerciseSessionPage] handleKeypadDigit called with:',
+        digit
+      );
+      console.log(
+        '[ExerciseSessionPage] currentQuestion?.question_type:',
         currentQuestion?.question_type
       );
-      console.log('[PracticePage] currentAnswer before:', currentAnswer);
+      console.log('[ExerciseSessionPage] currentAnswer before:', currentAnswer);
       if (currentQuestion?.question_type !== 'columnar') {
         setCurrentAnswerAction(currentAnswer + digit);
         console.log(
-          '[PracticePage] setCurrentAnswerAction called with:',
+          '[ExerciseSessionPage] setCurrentAnswerAction called with:',
           currentAnswer + digit
         );
       } else {
         console.log(
-          '[PracticePage] Skipping digit input - question is columnar type'
+          '[ExerciseSessionPage] Skipping digit input - question is columnar type'
         );
       }
     },
@@ -228,30 +243,22 @@ const PracticePage: React.FC = () => {
 
   // Handle answer submission for regular questions
   const handleSubmitAnswer = useCallback(async () => {
-    if (
-      !currentAnswer.trim() ||
-      currentQuestion?.question_type === 'columnar'
-    ) {
+    if (!currentAnswer.trim()) {
       return;
     }
 
     try {
       await submitCurrentAnswer();
     } catch (err) {
-      console.error('[PracticePage] Failed to submit answer:', err);
+      console.error('[ExerciseSessionPage] Failed to submit answer:', err);
       setError('提交答案失败，请重试');
     }
-  }, [
-    currentAnswer,
-    currentQuestion?.question_type,
-    submitCurrentAnswer,
-    setError,
-  ]);
+  }, [currentAnswer, submitCurrentAnswer, setError]);
 
   // Handle next question
   const handleNextQuestion = useCallback(async () => {
     if (isSessionOver) {
-      navigate('/result');
+      navigate(`/grades/${gradeId}/subjects/${subjectId}/practice/result`);
       return;
     }
 
@@ -261,13 +268,18 @@ const PracticePage: React.FC = () => {
       try {
         await loadNextQuestion();
       } catch (err) {
-        console.error('[PracticePage] Failed to load next question:', err);
+        console.error(
+          '[ExerciseSessionPage] Failed to load next question:',
+          err
+        );
         setError('加载下一题失败，请重试');
       }
     }
   }, [
     isSessionOver,
     navigate,
+    gradeId,
+    subjectId,
     questionNumber,
     practiceTotal,
     endPracticeSession,
@@ -280,8 +292,8 @@ const PracticePage: React.FC = () => {
     // End navigation session tracking, but completely reset the practice state
     endSession(); // from useNavigationStore
     resetSession(); // from usePracticeStore
-    navigate('/difficulty-selection'); // Go back to difficulty selection
-  }, [endSession, resetSession, navigate]);
+    navigate(`/grades/${gradeId}/subjects/${subjectId}/practice/difficulty`); // Go back to difficulty selection
+  }, [endSession, resetSession, navigate, gradeId, subjectId]);
 
   // Columnar calculation handlers
   const handleColumnarAnswerChange = useCallback(
@@ -299,11 +311,14 @@ const PracticePage: React.FC = () => {
 
   const handleColumnarInputFocus = useCallback(
     (type: 'operand' | 'result', digitIndex: number, rowIndex?: number) => {
-      console.log('[PracticePage] handleColumnarInputFocus called with:', {
-        type,
-        digitIndex,
-        rowIndex,
-      });
+      console.log(
+        '[ExerciseSessionPage] handleColumnarInputFocus called with:',
+        {
+          type,
+          digitIndex,
+          rowIndex,
+        }
+      );
       setActiveColumnarInput({ type, digitIndex, rowIndex });
     },
     [setActiveColumnarInput]
@@ -312,21 +327,24 @@ const PracticePage: React.FC = () => {
   const handleColumnarKeypadDigit = useCallback(
     (digit: string) => {
       console.log(
-        '[PracticePage] handleColumnarKeypadDigit called with:',
+        '[ExerciseSessionPage] handleColumnarKeypadDigit called with:',
         digit
       );
       console.log(
-        '[PracticePage] currentQuestion?.question_type:',
+        '[ExerciseSessionPage] currentQuestion?.question_type:',
         currentQuestion?.question_type
       );
-      console.log('[PracticePage] activeColumnarInput:', activeColumnarInput);
+      console.log(
+        '[ExerciseSessionPage] activeColumnarInput:',
+        activeColumnarInput
+      );
 
       if (
         currentQuestion?.question_type === 'columnar' &&
         activeColumnarInput
       ) {
         const digitValue = parseInt(digit, 10);
-        console.log('[PracticePage] Calling updateColumnarDigit with:', {
+        console.log('[ExerciseSessionPage] Calling updateColumnarDigit with:', {
           digitValue,
           type: activeColumnarInput.type,
           digitIndex: activeColumnarInput.digitIndex,
@@ -341,7 +359,7 @@ const PracticePage: React.FC = () => {
         findNextFocusableInput();
       } else {
         console.log(
-          '[PracticePage] Not calling updateColumnarDigit - conditions not met'
+          '[ExerciseSessionPage] Not calling updateColumnarDigit - conditions not met'
         );
       }
     },
@@ -364,11 +382,14 @@ const PracticePage: React.FC = () => {
       try {
         await submitCurrentAnswer();
       } catch (err) {
-        console.error('[PracticePage] Failed to submit columnar answer:', err);
+        console.error(
+          '[ExerciseSessionPage] Failed to submit columnar answer:',
+          err
+        );
         setError('提交答案失败，请重试');
       }
     }
-  }, [currentQuestion?.question_type, submitCurrentAnswer, setError]);
+  }, [submitCurrentAnswer, setError, currentQuestion]);
 
   // Help handlers
   const handleHelpButtonClick = useCallback(() => {
@@ -387,7 +408,7 @@ const PracticePage: React.FC = () => {
     try {
       await requestVoiceHelp();
     } catch (err) {
-      console.error('[PracticePage] Voice help failed:', err);
+      console.error('[ExerciseSessionPage] Voice help failed:', err);
     }
   }, [requestVoiceHelp]);
 
@@ -489,7 +510,7 @@ const PracticePage: React.FC = () => {
     effectiveDifficultyLevelId
   ) {
     console.warn(
-      '[PracticePage] No session ID, not loading, no error, but difficulty ID exists. Session init might have failed silently or is pending.'
+      '[ExerciseSessionPage] No session ID, not loading, no error, but difficulty ID exists. Session init might have failed silently or is pending.'
     );
     // This case might indicate an issue if the useEffect for init isn't firing as expected, or startSession isn't setting sessionId.
   }
@@ -522,7 +543,7 @@ const PracticePage: React.FC = () => {
   // Final check: if no current question after all this, something is wrong
   if (!currentQuestion) {
     console.error(
-      '[PracticePage] Critical error: No current question loaded despite passing guards.'
+      '[ExerciseSessionPage] Critical error: No current question loaded despite passing guards.'
     );
     return (
       <div
@@ -704,4 +725,4 @@ const PracticePage: React.FC = () => {
   );
 };
 
-export default PracticePage;
+export default ExerciseSessionPage;

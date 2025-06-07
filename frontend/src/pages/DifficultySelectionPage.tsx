@@ -1,13 +1,17 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useNavigationStore, useDifficultyLevels } from '../stores';
 import '../styles/DifficultySelectionPage.css'; // Corrected path
 
 const DifficultySelectionPage: React.FC = () => {
   const navigate = useNavigate();
+  const { gradeId, subjectId } = useParams<{
+    gradeId: string;
+    subjectId: string;
+  }>();
   const { levels, isLoading, error, refetch } = useDifficultyLevels();
 
-  const { setDifficulty, navigateToStep } = useNavigationStore();
+  const { setDifficulty, navigateToStep, goBack } = useNavigationStore();
 
   useEffect(() => {
     // Fetch difficulty levels using the API store
@@ -21,12 +25,13 @@ const DifficultySelectionPage: React.FC = () => {
     setDifficulty(level);
     navigateToStep('practice');
 
-    // Navigate to practice page - no state needed
-    navigate('/practice');
+    // Navigate to practice page
+    navigate(`/grades/${gradeId}/subjects/${subjectId}/practice/session`);
   };
 
   const handleBackClick = () => {
-    navigate('/mathematics-options');
+    goBack();
+    navigate(`/grades/${gradeId}/subjects/${subjectId}`);
   };
 
   if (isLoading)
