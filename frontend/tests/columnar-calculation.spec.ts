@@ -26,80 +26,72 @@ test.describe('Columnar Calculation E2E - Zustand Architecture', () => {
     };
 
     // 1. Mock the API response for getting difficulty levels (needed for navigation flow)
-    await page.route(
-      'http://localhost:8000/api/v1/difficulty-levels',
-      async (route) => {
-        console.log(
-          '[Playwright Test] API call to /difficulty-levels intercepted.'
-        );
+    await page.route('**/api/v1/difficulty/levels', async (route) => {
+      console.log(
+        '[Playwright Test] API call to /difficulty/levels intercepted.'
+      );
 
-        const mockDifficultyLevels = [
-          {
-            id: 1,
-            name: 'Mock Difficulty',
-            max_number: 100,
-            allow_carry: true,
-            allow_borrow: false,
-            operation_types: ['+'],
-            order: 1,
-          },
-        ];
+      const mockDifficultyLevels = [
+        {
+          id: 1,
+          name: 'Mock Difficulty',
+          max_number: 100,
+          allow_carry: true,
+          allow_borrow: false,
+          operation_types: ['+'],
+          order: 1,
+        },
+      ];
 
-        await route.fulfill({ json: mockDifficultyLevels });
-      }
-    );
+      await route.fulfill({ json: mockDifficultyLevels });
+    });
 
     // 2. Mock the API response for starting a practice session
-    await page.route(
-      'http://localhost:8000/api/v1/practice/start',
-      async (route) => {
-        console.log(
-          '[Playwright Test] API call to /practice/start intercepted.'
-        );
-        const request = route.request();
-        const postData = request.postDataJSON();
+    await page.route('**/api/v1/practice/start', async (route) => {
+      console.log('[Playwright Test] API call to /practice/start intercepted.');
+      const request = route.request();
+      const postData = request.postDataJSON();
 
-        expect(postData.difficulty_level_id).toBe(mockDifficultyLevelId);
-        expect(postData.total_questions).toBe(expectedTotalQuestions);
+      expect(postData.difficulty_level_id).toBe(mockDifficultyLevelId);
+      expect(postData.total_questions).toBe(expectedTotalQuestions);
 
-        const mockQuestion: MockQuestion = {
-          id: mockQuestionId,
-          session_id: mockSessionId,
-          operands: [123, 45],
-          operations: ['+'],
-          question_string: '123 + 45',
-          correct_answer: 168,
-          difficulty_level_id: mockDifficultyLevelId,
-          question_type: 'columnar',
-          columnar_operands: [
-            [null, 1, 2, 3],
-            [null, null, 4, 5],
-          ],
-          columnar_result_placeholders: [null, null, null, null],
-          columnar_operation: '+',
-          created_at: new Date().toISOString(),
-        };
+      const mockQuestion: MockQuestion = {
+        id: mockQuestionId,
+        session_id: mockSessionId,
+        operands: [123, 45],
+        operations: ['+'],
+        question_string: '123 + 45',
+        correct_answer: 168,
+        difficulty_level_id: mockDifficultyLevelId,
+        question_type: 'columnar',
+        columnar_operands: [
+          [null, 1, 2, 3],
+          [null, null, 4, 5],
+        ],
+        columnar_result_placeholders: [null, null, null, null],
+        columnar_operation: '+',
+        created_at: new Date().toISOString(),
+      };
 
-        const mockPracticeSessionResponse = {
-          id: mockSessionId,
-          difficulty_level_id: mockDifficultyLevelId,
-          total_questions_planned: expectedTotalQuestions,
-          questions: [mockQuestion],
-          current_question_index: 0,
-          score: 0,
-          start_time: new Date().toISOString(),
-        };
-        console.log(
-          '[Playwright Test] Fulfilling /practice/start with:',
-          mockPracticeSessionResponse
-        );
-        await route.fulfill({ json: mockPracticeSessionResponse });
-      }
-    );
+      const mockPracticeSessionResponse = {
+        id: mockSessionId,
+        difficulty_level_id: mockDifficultyLevelId,
+        total_questions_planned: expectedTotalQuestions,
+        questions: [mockQuestion],
+        current_question_index: 0,
+        score: 0,
+        start_time: new Date().toISOString(),
+      };
+      console.log(
+        '[Playwright Test] Fulfilling /practice/start with:',
+        mockPracticeSessionResponse
+      );
+      await route.fulfill({ json: mockPracticeSessionResponse });
+    });
 
     // 3. Mock the API response for getting the next question
     await page.route(
-      `http://localhost:8000/api/v1/practice/question?session_id=${mockSessionId}`,
+      `**/api/v1/practice/question?session_id=${mockSessionId}`,
       async (route) => {
         console.log(
           '[Playwright Test] API call to /practice/question intercepted.'
@@ -137,7 +129,7 @@ test.describe('Columnar Calculation E2E - Zustand Architecture', () => {
     );
 
     // 5. Navigate directly to practice page with URL parameters (now supported as fallback)
-    const practiceUrl = `/practice?difficultyId=${mockDifficultyLevelId}&totalQuestions=${mockTotalQuestions}&difficultyName=Mock%20Difficulty&testMode=true`;
+    const practiceUrl = `/grades/1/subjects/mathematics/practice/session?difficultyId=${mockDifficultyLevelId}&totalQuestions=${mockTotalQuestions}&difficultyName=Mock%20Difficulty&testMode=true`;
     console.log('[Playwright Test] Navigating to:', practiceUrl);
 
     await page.goto(practiceUrl);
