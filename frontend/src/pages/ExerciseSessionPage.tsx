@@ -662,20 +662,7 @@ const ExerciseSessionPage: React.FC = () => {
                 </>
               )}
             </button>
-            <button
-              onClick={handleVoiceHelpButtonClick}
-              className="voice-help-button"
-              disabled={voiceHelp.isLoading || storeIsLoading}
-              title="语音提示"
-              data-testid="voice-help-button"
-            >
-              {voiceHelp.isLoading ? '🔄' : '🔊 语音提示'}
-            </button>
           </div>
-        )}
-
-        {voiceHelp.error && (
-          <div className="voice-help-error">{voiceHelp.error}</div>
         )}
       </main>
 
@@ -727,6 +714,11 @@ const ExerciseSessionPage: React.FC = () => {
         error={help.error}
         onRetry={handleRetryHelp}
         isLoading={help.isLoading}
+        onVoiceHelpClick={handleVoiceHelpButtonClick}
+        isVoiceHelpLoading={voiceHelp.isLoading}
+        isActionInProgress={storeIsLoading}
+        voiceHelpError={voiceHelp.error}
+        isVoiceHelpPlaying={voiceHelp.isPlaying}
       />
     </div>
   );

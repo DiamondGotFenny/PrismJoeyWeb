@@ -14,6 +14,11 @@ interface HelpBoxProps {
   } | null;
   onRetry?: () => void;
   isLoading?: boolean;
+  onVoiceHelpClick?: () => void;
+  isVoiceHelpLoading?: boolean;
+  isActionInProgress?: boolean;
+  isVoiceHelpPlaying?: boolean;
+  voiceHelpError?: string | null;
 }
 
 const HelpBox: React.FC<HelpBoxProps> = ({
@@ -23,6 +28,11 @@ const HelpBox: React.FC<HelpBoxProps> = ({
   error = null,
   onRetry,
   isLoading = false,
+  onVoiceHelpClick,
+  isVoiceHelpLoading = false,
+  isActionInProgress = false,
+  isVoiceHelpPlaying = false,
+  voiceHelpError = null,
 }) => {
   if (!isVisible) {
     return null;
@@ -40,12 +50,38 @@ const HelpBox: React.FC<HelpBoxProps> = ({
             />
             <h3>解题帮助</h3>
           </div>
+          {onVoiceHelpClick && (
+            <button
+              onClick={onVoiceHelpClick}
+              className="voice-help-button"
+              disabled={
+                isVoiceHelpLoading || isActionInProgress || isVoiceHelpPlaying
+              }
+              title="语音提示"
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '1.5rem',
+                cursor: 'pointer',
+                marginLeft: 'auto',
+              }}
+            >
+              {isVoiceHelpLoading || isVoiceHelpPlaying ? '🔄' : '🔊语音提示'}
+            </button>
+          )}
           <button className="help-close-button" onClick={onClose}>
             ✕
           </button>
         </div>
 
         <div className="help-box-content">
+          {voiceHelpError && (
+            <div className="help-error" style={{ marginBottom: '1rem' }}>
+              <div className="error-icon">⚠️</div>
+              <h4>语音提示时遇到问题</h4>
+              <p className="error-message">{voiceHelpError}</p>
+            </div>
+          )}
           {isLoading ? (
             <div className="help-loading">
               <div className="loading-spinner"></div>

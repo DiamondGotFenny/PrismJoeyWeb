@@ -85,6 +85,10 @@ interface PracticeState {
   // Voice help state
   voiceHelp: VoiceHelpState;
 
+  // Abort controllers
+  helpAbortController: AbortController | null;
+  voiceHelpAbortController: AbortController | null;
+
   // Session summary
   sessionDataForSummary: PracticeSession | null;
 }
@@ -194,6 +198,8 @@ const initialState: PracticeState = {
   feedback: initialFeedback,
   help: initialHelp,
   voiceHelp: initialVoiceHelp,
+  helpAbortController: null,
+  voiceHelpAbortController: null,
   sessionDataForSummary: null,
 };
 
@@ -732,41 +738,66 @@ export const usePracticeStore = create<PracticeStore>()(
 
       // Help actions
       requestHelp: async () => {
-        const { sessionId, currentQuestion } = get();
+        const { sessionId, currentQuestion, helpAbortController } = get();
         if (!sessionId || !currentQuestion) return;
 
+        // Abort any existing request
+        if (helpAbortController) {
+          helpAbortController.abort();
+        }
+
+        const newController = new AbortController();
+
         set((state) => {
-          state.help.isVisible = true;
           state.help.isLoading = true;
+          state.help.isVisible = true;
           state.help.error = null;
+          state.helpAbortController = newController;
         });
 
         try {
-          const helpResponse = await getQuestionHelp(
+          const helpData = await getQuestionHelp(
             sessionId,
-            currentQuestion.id
+            currentQuestion.id,
+            {
+              signal: newController.signal,
+            }
           );
-
           set((state) => {
-            state.help.data = helpResponse;
+            state.help.data = helpData;
             state.help.isLoading = false;
             state.help.retryCount = 0;
           });
         } catch (error) {
+          if (error instanceof AxiosError && error.name === 'CanceledError') {
+            console.log('Help request cancelled by user.');
+            // State is reset in hideHelp, so no need to set isLoading to false here
+            return;
+          }
+
+          console.error('Error fetching help:', error);
           set((state) => {
+            state.help.isLoading = false;
             state.help.error = {
               type: 'network',
-              message: '获取帮助失败，请稍后再试。',
+              message: '无法获取帮助，请检查你的网络连接。',
               canRetry: true,
             };
-            state.help.isLoading = false;
-            state.help.retryCount += 1;
           });
-          console.error('Error requesting help:', error);
+        } finally {
+          set((state) => {
+            if (state.helpAbortController === newController) {
+              state.helpAbortController = null;
+            }
+          });
         }
       },
 
       retryHelp: async () => {
+        set((state) => {
+          state.help.error = null;
+          state.help.retryCount += 1;
+        });
         await get().requestHelp();
       },
 
@@ -777,8 +808,24 @@ export const usePracticeStore = create<PracticeStore>()(
       },
 
       hideHelp: () => {
+        const { helpAbortController, voiceHelpAbortController } = get();
+        if (helpAbortController) {
+          helpAbortController.abort();
+        }
+        if (voiceHelpAbortController) {
+          voiceHelpAbortController.abort();
+        }
         set((state) => {
           state.help.isVisible = false;
+          state.help.isLoading = false; // Explicitly turn off loading
+          state.helpAbortController = null;
+
+          // Also reset voice help state on close
+          state.voiceHelp.isLoading = false;
+          state.voiceHelp.isPlaying = false;
+          state.voiceHelp.progress = 0;
+          state.voiceHelpAbortController = null;
+          // Do not clear the voiceHelp.error so user can see it
         });
       },
 
@@ -790,12 +837,20 @@ export const usePracticeStore = create<PracticeStore>()(
 
       // Voice help actions
       requestVoiceHelp: async () => {
-        const { sessionId, currentQuestion } = get();
+        const { sessionId, currentQuestion, voiceHelpAbortController } = get();
         if (!sessionId || !currentQuestion) return;
+
+        if (voiceHelpAbortController) {
+          voiceHelpAbortController.abort();
+        }
+        const newController = new AbortController();
 
         set((state) => {
           state.voiceHelp.isLoading = true;
           state.voiceHelp.error = null;
+          state.voiceHelp.isPlaying = false;
+          state.voiceHelp.progress = 0;
+          state.voiceHelpAbortController = newController;
         });
 
         try {
@@ -804,40 +859,53 @@ export const usePracticeStore = create<PracticeStore>()(
             currentQuestion.id,
             (progress) => {
               set((state) => {
+                state.voiceHelp.isPlaying = true;
                 state.voiceHelp.progress = progress;
               });
             },
             () => {
+              // onComplete
               set((state) => {
-                state.voiceHelp.isLoading = false;
                 state.voiceHelp.isPlaying = false;
-                state.voiceHelp.progress = 0;
+                state.voiceHelp.progress = 100;
               });
             },
             (error) => {
-              set((state) => {
-                state.voiceHelp.error = error.message;
-                state.voiceHelp.isLoading = false;
-                state.voiceHelp.isPlaying = false;
-              });
-            }
+              // onError
+              if (
+                error.name !== 'AbortError' &&
+                error.message !== 'Operation cancelled'
+              ) {
+                set((state) => {
+                  state.voiceHelp.error =
+                    error.message || '语音播放时发生错误。';
+                });
+              }
+            },
+            { signal: newController.signal }
           );
-
-          set((state) => {
-            state.voiceHelp.isLoading = false;
-            state.voiceHelp.isPlaying = true;
-          });
         } catch (error) {
+          if ((error as Error).name !== 'AbortError') {
+            console.error('Error in requestVoiceHelp:', error);
+            set((state) => {
+              state.voiceHelp.error = '无法请求语音提示。';
+            });
+          }
+        } finally {
           set((state) => {
-            state.voiceHelp.error = '语音帮助失败，请稍后再试。';
             state.voiceHelp.isLoading = false;
+            if (state.voiceHelpAbortController === newController) {
+              state.voiceHelpAbortController = null;
+            }
           });
-          console.error('Error requesting voice help:', error);
         }
       },
 
       playVoiceHelp: async () => {
-        await get().requestVoiceHelp();
+        // This is now handled by requestVoiceHelp, can be kept for future use
+        console.warn(
+          'playVoiceHelp is deprecated, use requestVoiceHelp instead.'
+        );
       },
 
       stopVoiceHelp: () => {
