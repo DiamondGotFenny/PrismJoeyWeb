@@ -245,10 +245,7 @@ export const streamToAudio = async (
           onComplete?.();
         };
 
-        audio.onerror = () => {
-          URL.revokeObjectURL(audioUrl);
-          onError?.(new Error('Audio playback error'));
-        };
+        audio.onerror = null;
 
         await audio.play();
         break;
@@ -280,9 +277,12 @@ export const playStreamingAudio = async (
   let audio: HTMLAudioElement | null = null;
 
   const cleanup = () => {
+    console.log('[playStreamingAudio] Cleanup called');
     if (audio) {
       audio.pause();
       audio.src = '';
+      // Prevent potential spurious 'Audio playback error' after cleanup
+      audio.onerror = null;
     }
     audio = null;
     if (options?.audioRef) {
@@ -293,11 +293,13 @@ export const playStreamingAudio = async (
   const signal = options?.signal;
 
   if (signal?.aborted) {
+    console.log('[playStreamingAudio] Signal already aborted, returning early');
     onError?.(new Error('Operation cancelled pre-flight'));
     return;
   }
 
   const abortListener = () => {
+    console.log('[playStreamingAudio] Abort listener triggered');
     cleanup();
     onError?.(new Error('Operation cancelled'));
   };
@@ -305,6 +307,7 @@ export const playStreamingAudio = async (
   signal?.addEventListener('abort', abortListener);
 
   try {
+    console.log('[playStreamingAudio] Making fetch request');
     const response = await fetch(`${API_BASE_URL}/practice/voice-help-stream`, {
       method: 'POST',
       headers: {
@@ -318,6 +321,12 @@ export const playStreamingAudio = async (
       signal: signal,
     });
 
+    console.log('[playStreamingAudio] Fetch response received:', {
+      ok: response.ok,
+      status: response.status,
+      hasBody: !!response.body,
+    });
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -328,117 +337,166 @@ export const playStreamingAudio = async (
 
     // Create a MediaSource for progressive playback
     if ('MediaSource' in window) {
-      const mediaSource = new MediaSource();
-      audio = new Audio();
-      if (options?.audioRef) {
-        options.audioRef.current = audio;
-      }
-      audio.src = URL.createObjectURL(mediaSource);
-
-      const onEnded = () => {
-        cleanup();
-        signal?.removeEventListener('abort', abortListener);
-      };
-
-      const onErrorCleanup = (err: Error) => {
-        onError?.(err);
-        cleanup();
-        signal?.removeEventListener('abort', abortListener);
-      };
-
-      audio.onended = onEnded;
-      audio.onerror = () => onErrorCleanup(new Error('Audio playback error'));
-
-      mediaSource.addEventListener('sourceopen', async () => {
-        if (signal?.aborted) return;
-        try {
-          const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
-          const reader = response.body!.getReader();
-          let totalLoaded = 0;
-
-          const pump = async (): Promise<void> => {
-            if (signal?.aborted) {
-              reader.cancel().catch(() => {});
-              cleanup();
-              return;
-            }
-            const { done, value } = await reader.read();
-
-            if (done) {
-              if (mediaSource.readyState === 'open' && !sourceBuffer.updating) {
-                try {
-                  mediaSource.endOfStream();
-                } catch (e) {
-                  console.warn('Error during endOfStream:', e);
-                }
-              }
-              onComplete?.();
-              return;
-            }
-
-            if (value) {
-              totalLoaded += value.length;
-              onProgress?.(totalLoaded);
-
-              await new Promise<void>((resolve, reject) => {
-                const onUpdateEnd = () => {
-                  sourceBuffer.removeEventListener('updateend', onUpdateEnd);
-                  sourceBuffer.removeEventListener('error', onErrorEvent);
-                  resolve();
-                };
-                const onErrorEvent = (e: Event) => {
-                  sourceBuffer.removeEventListener('updateend', onUpdateEnd);
-                  sourceBuffer.removeEventListener('error', onErrorEvent);
-                  reject(e);
-                };
-
-                sourceBuffer.addEventListener('updateend', onUpdateEnd);
-                sourceBuffer.addEventListener('error', onErrorEvent);
-                try {
-                  sourceBuffer.appendBuffer(value);
-                } catch (e) {
-                  reject(e);
-                }
-              });
-              await pump();
-            }
-          };
-
-          if (audio) {
-            audio.addEventListener(
-              'canplay',
-              () => {
-                if (signal?.aborted) {
-                  cleanup();
-                  return;
-                }
-                audio
-                  ?.play()
-                  .then(() => {
-                    // playback started
-                  })
-                  .catch((err) => {
-                    if ((err as Error).name !== 'AbortError') {
-                      onErrorCleanup(err);
-                    } else {
-                      cleanup();
-                    }
-                  });
-              },
-              { once: true }
-            );
-          }
-
-          await pump();
-        } catch (error) {
-          if ((error as Error).name !== 'AbortError') {
-            onErrorCleanup(error as Error);
-          } else {
-            cleanup();
-          }
+      console.log('[playStreamingAudio] Using MediaSource approach');
+      // Wrap in Promise to wait for actual playback start
+      await new Promise<void>((resolve, reject) => {
+        const mediaSource = new MediaSource();
+        audio = new Audio();
+        if (options?.audioRef) {
+          options.audioRef.current = audio;
         }
+        audio.src = URL.createObjectURL(mediaSource);
+
+        const onEnded = () => {
+          console.log(
+            '[playStreamingAudio] Audio ended at ',
+            new Date().toISOString()
+          );
+          // This is when audio actually finishes playing
+          onComplete?.();
+          cleanup();
+          signal?.removeEventListener('abort', abortListener);
+        };
+
+        const onErrorCleanup = (err: Error) => {
+          console.log('[playStreamingAudio] Error cleanup called:', err);
+          onError?.(err);
+          cleanup();
+          signal?.removeEventListener('abort', abortListener);
+          reject(err);
+        };
+
+        audio.onended = onEnded;
+        audio.onerror = null;
+
+        mediaSource.addEventListener('sourceopen', async () => {
+          console.log('[playStreamingAudio] MediaSource opened');
+          if (signal?.aborted) {
+            reject(new Error('Operation cancelled'));
+            return;
+          }
+          try {
+            const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
+            const reader = response.body!.getReader();
+            let totalLoaded = 0;
+            let playbackStarted = false;
+
+            const pump = async (): Promise<void> => {
+              if (signal?.aborted) {
+                console.log('[playStreamingAudio] Signal aborted during pump');
+                reader.cancel().catch(() => {});
+                cleanup();
+                reject(new Error('Operation cancelled'));
+                return;
+              }
+              const { done, value } = await reader.read();
+
+              if (done) {
+                console.log('[playStreamingAudio] Reader done, ending stream');
+                if (
+                  mediaSource.readyState === 'open' &&
+                  !sourceBuffer.updating
+                ) {
+                  try {
+                    mediaSource.endOfStream();
+                  } catch (e) {
+                    console.warn('Error during endOfStream:', e);
+                  }
+                }
+                console.log(
+                  '[playStreamingAudio] Data stream completed, but audio may still be playing'
+                );
+                return;
+              }
+
+              if (value) {
+                totalLoaded += value.length;
+                console.log(
+                  '[playStreamingAudio] Received chunk, total:',
+                  totalLoaded
+                );
+                onProgress?.(totalLoaded);
+
+                await new Promise<void>((resolveUpdate, rejectUpdate) => {
+                  const onUpdateEnd = () => {
+                    sourceBuffer.removeEventListener('updateend', onUpdateEnd);
+                    sourceBuffer.removeEventListener('error', onErrorEvent);
+                    resolveUpdate();
+                  };
+                  const onErrorEvent = (e: Event) => {
+                    sourceBuffer.removeEventListener('updateend', onUpdateEnd);
+                    sourceBuffer.removeEventListener('error', onErrorEvent);
+                    rejectUpdate(e);
+                  };
+
+                  sourceBuffer.addEventListener('updateend', onUpdateEnd);
+                  sourceBuffer.addEventListener('error', onErrorEvent);
+                  try {
+                    sourceBuffer.appendBuffer(value);
+                  } catch (e) {
+                    rejectUpdate(e);
+                  }
+                });
+                await pump();
+              }
+            };
+
+            if (audio) {
+              audio.addEventListener(
+                'canplay',
+                () => {
+                  console.log(
+                    '[playStreamingAudio] Audio can play, starting playback'
+                  );
+                  if (signal?.aborted) {
+                    cleanup();
+                    reject(new Error('Operation cancelled'));
+                    return;
+                  }
+                  audio
+                    ?.play()
+                    .then(() => {
+                      console.log(
+                        '[playStreamingAudio] Playback started successfully'
+                      );
+                      if (!playbackStarted) {
+                        playbackStarted = true;
+                        // Resolve the main Promise when playback actually starts
+                        resolve();
+                      }
+                    })
+                    .catch((err) => {
+                      console.log('[playStreamingAudio] Playback failed:', err);
+                      if ((err as Error).name !== 'AbortError') {
+                        onErrorCleanup(err);
+                      } else {
+                        cleanup();
+                        reject(err);
+                      }
+                    });
+                },
+                { once: true }
+              );
+            }
+
+            console.log('[playStreamingAudio] Starting pump');
+            await pump();
+          } catch (error) {
+            console.log(
+              '[playStreamingAudio] Error in sourceopen handler:',
+              error
+            );
+            if ((error as Error).name !== 'AbortError') {
+              onErrorCleanup(error as Error);
+            } else {
+              cleanup();
+              reject(error);
+            }
+          }
+        });
       });
     } else {
+      console.log('[playStreamingAudio] Using fallback streamToAudio');
       // Fallback: collect all chunks then play
       await streamToAudio(
         response.body,
@@ -447,7 +505,9 @@ export const playStreamingAudio = async (
         onError
       );
     }
+    console.log('[playStreamingAudio] Function completed normally');
   } catch (error) {
+    console.log('[playStreamingAudio] Caught error:', error);
     if ((error as Error).name !== 'AbortError') {
       console.error('Error playing streaming audio:', error);
       onError?.(error as Error);
@@ -540,7 +600,7 @@ export const playUltraStreamingAudio = async (
             { once: true }
           );
 
-          audio.onerror = () => onError?.(new Error('Audio playback error'));
+          audio.onerror = null;
 
           await pump();
         } catch (error) {

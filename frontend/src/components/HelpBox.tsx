@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import type { HelpResponse } from '../services/api';
 import '../styles/HelpBox.css';
 import joeyThinking from '../assets/mascot/PrismJoey_Mascot_Thinking Pose.png';
+import { usePracticeHelp, usePracticeStore } from '../stores';
 
 interface HelpBoxProps {
   helpData: HelpResponse | null;
@@ -14,11 +15,6 @@ interface HelpBoxProps {
   } | null;
   onRetry?: () => void;
   isLoading?: boolean;
-  onVoiceHelpClick?: () => void;
-  isVoiceHelpLoading?: boolean;
-  isActionInProgress?: boolean;
-  isVoiceHelpPlaying?: boolean;
-  voiceHelpError?: string | null;
 }
 
 const HelpBox: React.FC<HelpBoxProps> = ({
@@ -28,12 +24,30 @@ const HelpBox: React.FC<HelpBoxProps> = ({
   error = null,
   onRetry,
   isLoading = false,
-  onVoiceHelpClick,
-  isVoiceHelpLoading = false,
-  isActionInProgress = false,
-  isVoiceHelpPlaying = false,
-  voiceHelpError = null,
 }) => {
+  const { voiceHelp } = usePracticeHelp();
+  const requestVoiceHelp = usePracticeStore((state) => state.requestVoiceHelp);
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handleVoiceHelpClick = useCallback(() => {
+    if (!voiceHelp.isLoading && !voiceHelp.isPlaying) {
+      requestVoiceHelp(audioRef);
+    }
+  }, [requestVoiceHelp, voiceHelp.isLoading, voiceHelp.isPlaying]);
+
+  const handleClose = useCallback(() => {
+    if (audioRef.current) {
+      try {
+        audioRef.current.pause();
+      } catch (e) {
+        console.warn('Error pausing audio on close:', e);
+      }
+      audioRef.current = null;
+    }
+    onClose();
+  }, [onClose]);
+
   if (!isVisible) {
     return null;
   }
@@ -50,36 +64,44 @@ const HelpBox: React.FC<HelpBoxProps> = ({
             />
             <h3>解题帮助</h3>
           </div>
-          {onVoiceHelpClick && (
-            <button
-              onClick={onVoiceHelpClick}
-              className="voice-help-button"
-              disabled={
-                isVoiceHelpLoading || isActionInProgress || isVoiceHelpPlaying
-              }
-              title="语音提示"
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: '1.5rem',
-                cursor: 'pointer',
-                marginLeft: 'auto',
-              }}
-            >
-              {isVoiceHelpLoading || isVoiceHelpPlaying ? '🔄' : '🔊语音提示'}
-            </button>
-          )}
-          <button className="help-close-button" onClick={onClose}>
+          {/* Voice Help Controls */}
+          <div style={{ marginLeft: 'auto' }}>
+            {voiceHelp.isLoading || voiceHelp.isPlaying ? (
+              <span
+                className="voice-help-loading"
+                title={voiceHelp.isLoading ? '语音提示加载中' : '语音播放中'}
+                style={{ fontSize: '1.5rem' }}
+              >
+                🔄
+              </span>
+            ) : (
+              <button
+                onClick={handleVoiceHelpClick}
+                className="voice-help-button"
+                title="语音提示"
+                disabled={voiceHelp.isLoading || voiceHelp.isPlaying}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                }}
+              >
+                🔊语音提示
+              </button>
+            )}
+          </div>
+          <button className="help-close-button" onClick={handleClose}>
             ✕
           </button>
         </div>
 
         <div className="help-box-content">
-          {voiceHelpError && (
+          {voiceHelp.error && (
             <div className="help-error" style={{ marginBottom: '1rem' }}>
               <div className="error-icon">⚠️</div>
               <h4>语音提示时遇到问题</h4>
-              <p className="error-message">{voiceHelpError}</p>
+              <p className="error-message">{voiceHelp.error}</p>
             </div>
           )}
           {isLoading ? (
@@ -160,7 +182,7 @@ const HelpBox: React.FC<HelpBoxProps> = ({
         </div>
 
         <div className="help-box-footer">
-          <button className="help-got-it-button" onClick={onClose}>
+          <button className="help-got-it-button" onClick={handleClose}>
             {error ? '知道了' : '我明白了'}
           </button>
         </div>

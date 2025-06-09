@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import { useMemo } from 'react';
+import { useMemo, type RefObject } from 'react';
 import type {
   PracticeSession,
   Question,
@@ -140,7 +140,9 @@ interface PracticeActions {
   clearHelpError: () => void;
 
   // Voice help actions
-  requestVoiceHelp: () => Promise<void>;
+  requestVoiceHelp: (
+    audioRef?: RefObject<HTMLAudioElement | null>
+  ) => Promise<void>;
   playVoiceHelp: () => Promise<void>;
   stopVoiceHelp: () => void;
 
@@ -836,15 +838,24 @@ export const usePracticeStore = create<PracticeStore>()(
       },
 
       // Voice help actions
-      requestVoiceHelp: async () => {
+      requestVoiceHelp: async (
+        audioRef?: RefObject<HTMLAudioElement | null>
+      ) => {
         const { sessionId, currentQuestion, voiceHelpAbortController } = get();
+        console.log('[requestVoiceHelp] Starting voice help request', {
+          sessionId: !!sessionId,
+          currentQuestion: !!currentQuestion,
+          hasAudioRef: !!audioRef,
+        });
         if (!sessionId || !currentQuestion) return;
 
         if (voiceHelpAbortController) {
+          console.log('[requestVoiceHelp] Aborting existing controller');
           voiceHelpAbortController.abort();
         }
         const newController = new AbortController();
 
+        console.log('[requestVoiceHelp] Setting isLoading = true');
         set((state) => {
           state.voiceHelp.isLoading = true;
           state.voiceHelp.error = null;
@@ -854,10 +865,12 @@ export const usePracticeStore = create<PracticeStore>()(
         });
 
         try {
+          console.log('[requestVoiceHelp] About to call playStreamingAudio');
           await playStreamingAudio(
             sessionId,
             currentQuestion.id,
             (progress) => {
+              console.log('[requestVoiceHelp] onProgress callback', progress);
               set((state) => {
                 state.voiceHelp.isPlaying = true;
                 state.voiceHelp.progress = progress;
@@ -865,6 +878,7 @@ export const usePracticeStore = create<PracticeStore>()(
             },
             () => {
               // onComplete
+              console.log('[requestVoiceHelp] onComplete callback');
               set((state) => {
                 state.voiceHelp.isPlaying = false;
                 state.voiceHelp.progress = 100;
@@ -872,6 +886,7 @@ export const usePracticeStore = create<PracticeStore>()(
             },
             (error) => {
               // onError
+              console.log('[requestVoiceHelp] onError callback', error);
               if (
                 error.name !== 'AbortError' &&
                 error.message !== 'Operation cancelled'
@@ -882,23 +897,44 @@ export const usePracticeStore = create<PracticeStore>()(
                 });
               }
             },
-            { signal: newController.signal }
+            { signal: newController.signal, audioRef }
           );
+          console.log(
+            '[requestVoiceHelp] playStreamingAudio completed successfully'
+          );
+          // Now that playback has actually started, we can set isLoading to false
+          // but keep isPlaying true until the audio completes
+          console.log(
+            '[requestVoiceHelp] Playback started, setting isLoading = false but keeping isPlaying = true'
+          );
+          set((state) => {
+            state.voiceHelp.isLoading = false;
+          });
         } catch (error) {
+          console.log(
+            '[requestVoiceHelp] playStreamingAudio threw error',
+            error
+          );
           if ((error as Error).name !== 'AbortError') {
             console.error('Error in requestVoiceHelp:', error);
             set((state) => {
               state.voiceHelp.error = '无法请求语音提示。';
+              state.voiceHelp.isLoading = false;
+            });
+          } else {
+            // AbortError - just reset loading state
+            set((state) => {
+              state.voiceHelp.isLoading = false;
             });
           }
-        } finally {
-          set((state) => {
-            state.voiceHelp.isLoading = false;
-            if (state.voiceHelpAbortController === newController) {
-              state.voiceHelpAbortController = null;
-            }
-          });
         }
+
+        // Clean up the abort controller reference
+        set((state) => {
+          if (state.voiceHelpAbortController === newController) {
+            state.voiceHelpAbortController = null;
+          }
+        });
       },
 
       playVoiceHelp: async () => {

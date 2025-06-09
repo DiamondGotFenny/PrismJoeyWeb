@@ -60,7 +60,6 @@ const ExerciseSessionPage: React.FC = () => {
   const requestHelp = usePracticeStore((state) => state.requestHelp);
   const retryHelp = usePracticeStore((state) => state.retryHelp);
   const hideHelp = usePracticeStore((state) => state.hideHelp);
-  const requestVoiceHelp = usePracticeStore((state) => state.requestVoiceHelp);
 
   const storeSessionId = usePracticeStore((state) => state.sessionId);
   const storeIsLoading = usePracticeStore((state) => state.isLoading);
@@ -83,7 +82,7 @@ const ExerciseSessionPage: React.FC = () => {
   const { score } = usePracticeProgress();
   const { error, feedback } = usePracticeUI();
   const { isSessionOver } = usePracticeSession();
-  const { help, voiceHelp } = usePracticeHelp();
+  const { help } = usePracticeHelp();
 
   // Automatically navigate to the result page when the session is over
   useEffect(() => {
@@ -411,14 +410,6 @@ const ExerciseSessionPage: React.FC = () => {
     retryHelp();
   }, [retryHelp]);
 
-  const handleVoiceHelpButtonClick = useCallback(async () => {
-    try {
-      await requestVoiceHelp();
-    } catch (err) {
-      console.error('[ExerciseSessionPage] Voice help failed:', err);
-    }
-  }, [requestVoiceHelp]);
-
   const handleCloseHelp = useCallback(() => {
     hideHelp();
   }, [hideHelp]);
@@ -714,11 +705,6 @@ const ExerciseSessionPage: React.FC = () => {
         error={help.error}
         onRetry={handleRetryHelp}
         isLoading={help.isLoading}
-        onVoiceHelpClick={handleVoiceHelpButtonClick}
-        isVoiceHelpLoading={voiceHelp.isLoading}
-        isActionInProgress={storeIsLoading}
-        voiceHelpError={voiceHelp.error}
-        isVoiceHelpPlaying={voiceHelp.isPlaying}
       />
     </div>
   );
