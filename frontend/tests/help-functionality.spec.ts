@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import { gotoPracticeSession } from './test-helpers';
 
 /**
  * 帮助功能 E2E 测试套件
@@ -180,30 +181,21 @@ test.describe('帮助功能 E2E 测试套件', () => {
   };
 
   /**
-   * 导航到练习页面 - 使用测试模式URL参数
+   * 导航到练习页面
    */
   const navigateToExercisePage = async (page: Page) => {
-    // 使用ExerciseSessionPage支持的测试模式URL参数
-    const testUrl = `/grades/1/subjects/1/practice/session?testMode=true&difficultyId=1&totalQuestions=10&difficultyName=10以内加减法&sessionId=${mockSessionId}`;
+    // Navigate using the new test helper
+    await gotoPracticeSession(page, {
+      difficulty: { id: 1, name: '10以内加减法' },
+      totalQuestions: 10,
+    });
 
-    await page.goto(testUrl);
-
-    // 等待页面完全加载
-    await page.waitForLoadState('networkidle');
-
-    // 等待关键元素加载
-    await page.waitForSelector('[data-testid="help-button"]', {
+    // The helper already ensures the practice page is visible.
+    // We can add waits for specific elements needed by the help tests.
+    await expect(page.locator('[data-testid="help-button"]')).toBeVisible({
       timeout: 10000,
     });
-
-    // 等待问题显示区域加载
-    await page.waitForSelector('[data-testid="question-content"]', {
-      timeout: 5000,
-    });
-
-    // 等待加载状态消失
-    await page.waitForSelector('[data-testid="loading-state"]', {
-      state: 'hidden',
+    await expect(page.locator('[data-testid="question-content"]')).toBeVisible({
       timeout: 5000,
     });
   };

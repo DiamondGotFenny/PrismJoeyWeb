@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import { gotoPracticeSession } from './test-helpers';
 
 /**
  * RULE: DO NOT EXTEND TIMEOUT LIMITS - Fix the root cause instead of masking issues with longer waits
@@ -271,11 +272,18 @@ test.describe('Practice Session Flow E2E Tests', () => {
   }) => {
     await setupBasicAPIRoutes(page);
 
-    const practiceUrl = `/grades/1/subjects/mathematics/practice/session?difficultyId=1&totalQuestions=10&difficultyName=10以内加减法&testMode=true`;
-    await page.goto(practiceUrl);
+    await gotoPracticeSession(page, {
+      difficulty: { name: '10以内加减法' },
+      totalQuestions: 10,
+    });
 
-    await expect(page.getByTestId('practice-page')).toBeVisible();
     await expect(page.getByTestId('question-content')).toBeVisible();
+    await expect(page.getByTestId('progress-indicator')).toContainText(
+      '1 / 10'
+    );
+    await expect(page.getByTestId('difficulty-name-display')).toContainText(
+      '10以内加减法'
+    );
   });
 
   test('should handle API errors gracefully', async ({ page }) => {

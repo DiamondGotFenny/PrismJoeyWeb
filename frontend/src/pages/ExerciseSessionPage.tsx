@@ -97,49 +97,20 @@ const ExerciseSessionPage: React.FC = () => {
     }
   }, [isSessionOver, navigate, gradeId, subjectId]);
 
-  // Get difficulty information from navigation store or URL parameters (fallback for testing)
-  const urlParams = new URLSearchParams(location.search);
-  const difficultyIdFromUrl = urlParams.get('difficultyId');
-  const totalQuestionsFromUrl = urlParams.get('totalQuestions');
-  const difficultyNameFromUrl = urlParams.get('difficultyName');
-  const testMode = urlParams.get('testMode') === 'true';
-
-  // Use navigation store as primary source, URL parameters as fallback for testing
-  const effectiveDifficultyLevelId =
-    difficulty?.id ||
-    (difficultyIdFromUrl ? parseInt(difficultyIdFromUrl, 10) : undefined);
-  const effectiveTotalQuestions =
-    totalQuestions ||
-    (totalQuestionsFromUrl ? parseInt(totalQuestionsFromUrl, 10) : 10);
-  const effectiveDifficultyName = difficulty?.name || difficultyNameFromUrl;
-
-  // In test mode, create a mock difficulty object if URL parameters are provided
-  const mockDifficultyForTesting =
-    testMode && difficultyIdFromUrl && difficultyNameFromUrl
-      ? {
-          id: parseInt(difficultyIdFromUrl, 10),
-          name: difficultyNameFromUrl,
-          code: 'TEST_DIFFICULTY',
-          max_number: 100,
-          allow_carry: true,
-          allow_borrow: false,
-          operation_types: ['+'],
-          order: 1,
-        }
-      : null;
+  // Use navigation store for difficulty information
+  const effectiveDifficultyLevelId = difficulty?.id;
+  const effectiveTotalQuestions = totalQuestions || 10;
 
   console.log('[ExerciseSessionPage] Component Render. Effective values:', {
     difficultyLevelId: effectiveDifficultyLevelId,
     totalQuestions: effectiveTotalQuestions,
     storeSessionId,
     storeIsLoading,
-    testMode,
-    usingMockDifficulty: !!mockDifficultyForTesting,
   });
 
   useEffect(() => {
     console.log(
-      `[ExerciseSessionPage] Session Init Effect. Effective Difficulty ID: ${effectiveDifficultyLevelId}, Existing Session ID: ${storeSessionId}, IsLoading: ${storeIsLoading}, Test Mode: ${testMode}`
+      `[ExerciseSessionPage] Session Init Effect. Effective Difficulty ID: ${effectiveDifficultyLevelId}, Existing Session ID: ${storeSessionId}, IsLoading: ${storeIsLoading}`
     );
 
     if (
@@ -190,9 +161,7 @@ const ExerciseSessionPage: React.FC = () => {
       console.log(
         '[ExerciseSessionPage] No effective difficulty level ID provided.'
       );
-      if (!testMode) {
-        setError('请先选择难度级别。');
-      }
+      setError('请先选择难度级别。');
     }
 
     // Cleanup function
@@ -207,7 +176,6 @@ const ExerciseSessionPage: React.FC = () => {
     effectiveTotalQuestions,
     storeSessionId,
     storeIsLoading,
-    testMode,
     startSession,
     startPracticeSession,
     setError,
@@ -629,9 +597,12 @@ const ExerciseSessionPage: React.FC = () => {
     <div className="practice-container" data-testid="practice-page">
       <header className="practice-header">
         <div className="progress-info" data-testid="progress-indicator">
-          {effectiveDifficultyName && (
-            <span className="difficulty-name-display">
-              难度: {effectiveDifficultyName} |{' '}
+          {difficulty?.name && (
+            <span
+              className="difficulty-name-display"
+              data-testid="difficulty-name-display"
+            >
+              难度: {difficulty.name} |{' '}
             </span>
           )}
           题目: {questionNumber} / {practiceTotal}

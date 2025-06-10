@@ -1,11 +1,12 @@
 import { test, expect, Page } from '@playwright/test';
+import { gotoPracticeSession } from './test-helpers';
 
 test.describe('Columnar Calculation E2E - Zustand Architecture', () => {
   // Helper function to navigate to a practice page with columnar questions
-  const setupColumnarQuestion = async (page: Page) => {
-    const mockDifficultyLevelId = 1; // Example difficulty ID
-    const mockTotalQuestions = 5; // Example total questions from URL
-    const expectedTotalQuestions = 10; // Component defaults to 10 when not set via navigation store
+  const setupColumnarQuestion = async (
+    page: Page,
+    questionOverrides: object = {}
+  ) => {
     const mockSessionId = 'mock-session-id-123';
     const mockQuestionId = 'mock-question-id-456';
 
@@ -25,121 +26,62 @@ test.describe('Columnar Calculation E2E - Zustand Architecture', () => {
       created_at: string;
     };
 
-    // 1. Mock the API response for getting difficulty levels (needed for navigation flow)
-    await page.route('**/api/v1/difficulty/levels', async (route) => {
-      console.log(
-        '[Playwright Test] API call to /difficulty/levels intercepted.'
-      );
+    const defaultMockQuestion: MockQuestion = {
+      id: mockQuestionId,
+      session_id: mockSessionId,
+      operands: [123, 45],
+      operations: ['+'],
+      question_string: '123 + 45',
+      correct_answer: 168,
+      difficulty_level_id: 1,
+      question_type: 'columnar',
+      columnar_operands: [
+        [null, 1, 2, 3],
+        [null, null, 4, 5],
+      ],
+      columnar_result_placeholders: [null, null, null, null],
+      columnar_operation: '+',
+      created_at: new Date().toISOString(),
+    };
 
-      const mockDifficultyLevels = [
-        {
-          id: 1,
-          name: 'Mock Difficulty',
-          max_number: 100,
-          allow_carry: true,
-          allow_borrow: false,
-          operation_types: ['+'],
-          order: 1,
-        },
-      ];
+    const mockQuestion = { ...defaultMockQuestion, ...questionOverrides };
 
-      await route.fulfill({ json: mockDifficultyLevels });
-    });
-
-    // 2. Mock the API response for starting a practice session
+    // 1. Mock the API response for starting a practice session to include our question
     await page.route('**/api/v1/practice/start', async (route) => {
-      console.log('[Playwright Test] API call to /practice/start intercepted.');
-      const request = route.request();
-      const postData = request.postDataJSON();
-
-      expect(postData.difficulty_level_id).toBe(mockDifficultyLevelId);
-      expect(postData.total_questions).toBe(expectedTotalQuestions);
-
-      const mockQuestion: MockQuestion = {
-        id: mockQuestionId,
-        session_id: mockSessionId,
-        operands: [123, 45],
-        operations: ['+'],
-        question_string: '123 + 45',
-        correct_answer: 168,
-        difficulty_level_id: mockDifficultyLevelId,
-        question_type: 'columnar',
-        columnar_operands: [
-          [null, 1, 2, 3],
-          [null, null, 4, 5],
-        ],
-        columnar_result_placeholders: [null, null, null, null],
-        columnar_operation: '+',
-        created_at: new Date().toISOString(),
-      };
-
       const mockPracticeSessionResponse = {
         id: mockSessionId,
-        difficulty_level_id: mockDifficultyLevelId,
-        total_questions_planned: expectedTotalQuestions,
+        difficulty_level_id: 1,
+        total_questions_planned: 5,
         questions: [mockQuestion],
         current_question_index: 0,
         score: 0,
         start_time: new Date().toISOString(),
       };
-      console.log(
-        '[Playwright Test] Fulfilling /practice/start with:',
-        mockPracticeSessionResponse
-      );
       await route.fulfill({ json: mockPracticeSessionResponse });
     });
 
-    // 3. Mock the API response for getting the next question
+    // 2. Mock the API response for getting the next question
     await page.route(
       `**/api/v1/practice/question?session_id=${mockSessionId}`,
       async (route) => {
-        console.log(
-          '[Playwright Test] API call to /practice/question intercepted.'
-        );
-
-        const mockQuestion: MockQuestion = {
-          id: mockQuestionId,
-          session_id: mockSessionId,
-          operands: [123, 45],
-          operations: ['+'],
-          question_string: '123 + 45',
-          correct_answer: 168,
-          difficulty_level_id: mockDifficultyLevelId,
-          question_type: 'columnar',
-          columnar_operands: [
-            [null, 1, 2, 3],
-            [null, null, 4, 5],
-          ],
-          columnar_result_placeholders: [null, null, null, null],
-          columnar_operation: '+',
-          created_at: new Date().toISOString(),
-        };
-
-        console.log(
-          '[Playwright Test] Fulfilling /practice/question with:',
-          mockQuestion
-        );
         await route.fulfill({ json: mockQuestion });
       }
     );
 
-    // 4. Set up console logging
+    // 3. Set up console logging
     page.on('console', (msg) =>
       console.log(`[Browser Console] ${msg.type()}: ${msg.text()}`)
     );
 
-    // 5. Navigate directly to practice page with URL parameters (now supported as fallback)
-    const practiceUrl = `/grades/1/subjects/mathematics/practice/session?difficultyId=${mockDifficultyLevelId}&totalQuestions=${mockTotalQuestions}&difficultyName=Mock%20Difficulty&testMode=true`;
-    console.log('[Playwright Test] Navigating to:', practiceUrl);
+    // 4. Navigate using the new test helper
+    await gotoPracticeSession(page, {
+      difficulty: { name: 'Mock Columnar Difficulty' },
+      totalQuestions: 5,
+    });
 
-    await page.goto(practiceUrl);
-
-    // Wait for the application to load and store to initialize
-    await page.waitForLoadState('networkidle');
-    console.log('[Playwright Test] Network is idle.');
-
-    // Wait for Zustand store to load the question and initialize columnar data
-    await page.waitForSelector('.columnar-calculation-container', {
+    // The helper already waits for the practice page to be visible
+    // We can add an extra wait for the specific container if needed
+    await expect(page.locator('.columnar-calculation-container')).toBeVisible({
       timeout: 10000,
     });
     console.log('[Playwright Test] .columnar-calculation-container found.');
