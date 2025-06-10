@@ -500,17 +500,22 @@ const ExerciseSessionPage: React.FC = () => {
     );
   }
 
-  // If session doesn't exist and not loading, and no error, it might be a navigation issue
+  // If session doesn't exist and not loading, and no error, it means we are about to initialize.
+  // Show a loading screen to prevent falling through to the error state before useEffect can run.
   if (
     !storeSessionId &&
     !storeIsLoading &&
     !error &&
     effectiveDifficultyLevelId
   ) {
-    console.warn(
-      '[ExerciseSessionPage] No session ID, not loading, no error, but difficulty ID exists. Session init might have failed silently or is pending.'
+    return (
+      <div
+        className="practice-container loading-state"
+        data-testid="initializing-state"
+      >
+        <div className="loading-message">正在准备练习...</div>
+      </div>
     );
-    // This case might indicate an issue if the useEffect for init isn't firing as expected, or startSession isn't setting sessionId.
   }
 
   if (!currentQuestion && !effectiveDifficultyLevelId) {
