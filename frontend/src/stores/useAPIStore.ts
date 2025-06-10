@@ -392,17 +392,16 @@ export const useAPIStore = create<APIStore>()(
   )
 );
 
+const defaultRequestState = {
+  isLoading: false,
+  error: null,
+  lastFetched: null,
+  data: null,
+};
+
 // Selectors for better performance
 export const useAPIRequest = (key: string) =>
-  useAPIStore(
-    (state) =>
-      state.requests[key] || {
-        isLoading: false,
-        error: null,
-        lastFetched: null,
-        data: null,
-      }
-  );
+  useAPIStore((state) => state.requests[key] || defaultRequestState);
 
 export const useAPILoading = (key: string) =>
   useAPIStore((state) => state.requests[key]?.isLoading || false);
