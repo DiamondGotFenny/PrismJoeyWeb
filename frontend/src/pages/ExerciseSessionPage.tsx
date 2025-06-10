@@ -414,6 +414,66 @@ const ExerciseSessionPage: React.FC = () => {
     hideHelp();
   }, [hideHelp]);
 
+  // Keyboard event handlers for columnar calculation
+  useEffect(() => {
+    const handleCustomKeyboardEvents = (e: Event) => {
+      const customEvent = e as CustomEvent;
+
+      if (e.type === 'columnarDigitInput') {
+        const digit = customEvent.detail?.digit;
+        if (digit && currentQuestion?.question_type === 'columnar') {
+          handleColumnarKeypadDigit(digit);
+        }
+      } else if (e.type === 'columnarClearInput') {
+        if (currentQuestion?.question_type === 'columnar') {
+          handleColumnarKeypadClear();
+        }
+      } else if (e.type === 'columnarSubmitInput') {
+        if (currentQuestion?.question_type === 'columnar') {
+          handleSubmitColumnarAnswer();
+        }
+      } else if (e.type === 'columnarNavigate') {
+        const direction = customEvent.detail?.direction;
+        if (direction && currentQuestion?.question_type === 'columnar') {
+          // Handle navigation (could be implemented later)
+          console.log('[ExerciseSessionPage] Keyboard navigation:', direction);
+        }
+      }
+    };
+
+    document.addEventListener('columnarDigitInput', handleCustomKeyboardEvents);
+    document.addEventListener('columnarClearInput', handleCustomKeyboardEvents);
+    document.addEventListener(
+      'columnarSubmitInput',
+      handleCustomKeyboardEvents
+    );
+    document.addEventListener('columnarNavigate', handleCustomKeyboardEvents);
+
+    return () => {
+      document.removeEventListener(
+        'columnarDigitInput',
+        handleCustomKeyboardEvents
+      );
+      document.removeEventListener(
+        'columnarClearInput',
+        handleCustomKeyboardEvents
+      );
+      document.removeEventListener(
+        'columnarSubmitInput',
+        handleCustomKeyboardEvents
+      );
+      document.removeEventListener(
+        'columnarNavigate',
+        handleCustomKeyboardEvents
+      );
+    };
+  }, [
+    currentQuestion?.question_type,
+    handleColumnarKeypadDigit,
+    handleColumnarKeypadClear,
+    handleSubmitColumnarAnswer,
+  ]);
+
   // Math expression parser (unchanged from original)
   const parseMathExpression = (expression: string): React.ReactNode[] => {
     const parts: React.ReactNode[] = [];

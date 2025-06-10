@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import type { Question } from '../services/api';
 import MathIcon from './MathIcon';
 import '../styles/ColumnarCalculation.css';
@@ -41,27 +41,156 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
     questionType: question.question_type,
     hasOnAnswerChange: !!onAnswerChange,
     hasActiveInput: !!activeInput,
+    showCorrectAnswer,
     externalOperandDigits,
     externalResultDigits,
   });
+
   const {
     columnar_operands,
     columnar_operation,
     columnar_result_placeholders,
+    operands,
   } = question;
 
   const baseOperands = columnar_operands || [];
   const baseResultPlaceholders = columnar_result_placeholders || [];
 
-  const displayOperands = externalOperandDigits || baseOperands;
-  const displayResult = externalResultDigits || baseResultPlaceholders;
+  // When showCorrectAnswer is true, display the correct complete answer
+  const getCorrectAnswerDigits = useCallback(() => {
+    if (!showCorrectAnswer || !operands || operands.length < 2) {
+      return null;
+    }
+
+    // Calculate the correct result based on the operation
+    let correctResult = 0;
+    if (columnar_operation === '+') {
+      correctResult = operands.reduce((sum, num) => sum + num, 0);
+    } else if (columnar_operation === '-' && operands.length >= 2) {
+      correctResult = operands[0] - operands[1];
+    } else if (columnar_operation === '*' && operands.length >= 2) {
+      correctResult = operands.reduce((product, num) => product * num, 1);
+    }
+
+    // Convert result to digit array
+    const resultStr = correctResult.toString();
+    const maxLength = Math.max(
+      ...baseOperands.map((op) => (op ? op.length : 0)),
+      baseResultPlaceholders ? baseResultPlaceholders.length : 0,
+      resultStr.length
+    );
+
+    const paddedStr = resultStr.padStart(maxLength, '0');
+    return paddedStr.split('').map((digit) => parseInt(digit, 10));
+  }, [
+    showCorrectAnswer,
+    operands,
+    columnar_operation,
+    baseOperands,
+    baseResultPlaceholders,
+  ]);
+
+  // Get correct operands when showing correct answer
+  const getCorrectOperandDigits = useCallback(() => {
+    if (!showCorrectAnswer || !operands) {
+      return baseOperands;
+    }
+
+    // Convert operands to digit arrays, filling in any null values
+    const maxLength = Math.max(
+      ...baseOperands.map((op) => (op ? op.length : 0)),
+      baseResultPlaceholders ? baseResultPlaceholders.length : 0
+    );
+
+    return operands.map((operand, index) => {
+      const operandStr = operand.toString().padStart(maxLength, '0');
+      return operandStr.split('').map((digit, digitIndex) => {
+        // If the base operand had a null at this position, show the correct digit
+        const baseDigit = baseOperands[index]?.[digitIndex];
+        return baseDigit === null ? parseInt(digit, 10) : baseDigit;
+      });
+    });
+  }, [showCorrectAnswer, operands, baseOperands, baseResultPlaceholders]);
+
+  const displayOperands = showCorrectAnswer
+    ? getCorrectOperandDigits()
+    : externalOperandDigits || baseOperands;
+  const displayResult = showCorrectAnswer
+    ? getCorrectAnswerDigits()
+    : externalResultDigits || baseResultPlaceholders;
 
   console.log('[ColumnarCalculation] Data analysis:', {
     baseOperands,
     baseResultPlaceholders,
     displayOperands,
     displayResult,
+    showCorrectAnswer,
   });
+
+  // Keyboard event handler for numeric input
+  const handleKeyboardInput = useCallback(
+    (e: KeyboardEvent) => {
+      // Only handle keyboard input when not showing correct answer and there's an active input
+      if (showCorrectAnswer || !activeInput) {
+        return;
+      }
+
+      const key = e.key;
+
+      // Handle numeric keys (0-9)
+      if (/^[0-9]$/.test(key)) {
+        e.preventDefault();
+
+        // Create a custom event to trigger the parent's handleColumnarKeypadDigit
+        const digitEvent = new CustomEvent('columnarDigitInput', {
+          detail: { digit: key },
+        });
+        document.dispatchEvent(digitEvent);
+      }
+
+      // Handle backspace/delete to clear current input
+      else if (key === 'Backspace' || key === 'Delete') {
+        e.preventDefault();
+
+        // Trigger clear event
+        const clearEvent = new CustomEvent('columnarClearInput');
+        document.dispatchEvent(clearEvent);
+      }
+
+      // Handle Enter to submit answer
+      else if (key === 'Enter') {
+        e.preventDefault();
+
+        // Trigger submit event
+        const submitEvent = new CustomEvent('columnarSubmitInput');
+        document.dispatchEvent(submitEvent);
+      }
+
+      // Handle Arrow keys for navigation
+      else if (
+        ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(key)
+      ) {
+        e.preventDefault();
+
+        const navigationEvent = new CustomEvent('columnarNavigate', {
+          detail: { direction: key.replace('Arrow', '').toLowerCase() },
+        });
+        document.dispatchEvent(navigationEvent);
+      }
+    },
+    [showCorrectAnswer, activeInput]
+  );
+
+  // Add keyboard event listener
+  useEffect(() => {
+    if (!showCorrectAnswer) {
+      document.addEventListener('keydown', handleKeyboardInput);
+
+      return () => {
+        document.removeEventListener('keydown', handleKeyboardInput);
+      };
+    }
+  }, [handleKeyboardInput, showCorrectAnswer]);
 
   const getGridTemplateColumns = (maxLength: number) => {
     // Add 1 for the operator column
@@ -94,11 +223,31 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
       digit === null || digit === '' ? ' ' : digit.toString();
     const isPlaceholderChar = charToRender === ' ';
 
-    const iconSize: 'small' | 'medium' | 'large' = 'medium'; // Changed back to medium
-    // Operator can be slightly larger if desired, but small should be consistent
-    // if (type === 'operator') iconSize = 'medium';
+    const iconSize: 'small' | 'medium' | 'large' = 'medium';
 
-    const iconColorFinal = undefined;
+    // Color coding for correct answers
+    let iconColorFinal:
+      | 'green'
+      | 'auto'
+      | 'red'
+      | 'orange'
+      | 'yellow'
+      | 'blue'
+      | 'indigo'
+      | 'violet'
+      | 'equals-special'
+      | undefined = undefined;
+    if (showCorrectAnswer && type !== 'operator' && type !== 'placeholder') {
+      // Check if this digit was originally null (blank) in the base data
+      const wasBlank =
+        type === 'operand'
+          ? baseOperands[rowIndex!]?.[digitIndex!] === null
+          : baseResultPlaceholders[digitIndex!] === null;
+
+      if (wasBlank) {
+        iconColorFinal = 'green'; // Highlight correct filled-in answers
+      }
+    }
 
     const handleClick = () => {
       if (
@@ -170,11 +319,23 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
       );
     }
 
+    // Determine if this is a filled cell (was previously null/blank)
+    const isFilledCell =
+      type === 'operand'
+        ? baseOperands[rowIndex!]?.[digitIndex!] === null && !isPlaceholderChar
+        : type === 'result'
+          ? baseResultPlaceholders[digitIndex!] === null && !isPlaceholderChar
+          : false;
+
     // Actual digit
     return (
       <div
         className={`digit-cell digit-entry ${isActive ? 'active' : ''} ${
           isInteractive ? 'interactive-digit' : ''
+        } ${isFilledCell ? 'filled-cell' : ''} ${
+          showCorrectAnswer && iconColorFinal === 'green'
+            ? 'correct-answer'
+            : ''
         }`}
         onClick={handleClick}
         role={isInteractive ? 'button' : undefined}

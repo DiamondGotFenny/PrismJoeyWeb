@@ -459,11 +459,40 @@ export const usePracticeStore = create<PracticeStore>()(
             draft.isLoading = false;
           });
 
-          // Show feedback
+          // Show feedback - for columnar questions, calculate the correct answer
+          let correctAnswer = result.correct_answer;
+          if (
+            !correctAnswer &&
+            currentQuestion.question_type === 'columnar' &&
+            currentQuestion.operands
+          ) {
+            // Calculate correct answer for columnar questions
+            if (currentQuestion.columnar_operation === '+') {
+              correctAnswer = currentQuestion.operands.reduce(
+                (sum, num) => sum + num,
+                0
+              );
+            } else if (
+              currentQuestion.columnar_operation === '-' &&
+              currentQuestion.operands.length >= 2
+            ) {
+              correctAnswer =
+                currentQuestion.operands[0] - currentQuestion.operands[1];
+            } else if (
+              currentQuestion.columnar_operation === '*' &&
+              currentQuestion.operands.length >= 2
+            ) {
+              correctAnswer = currentQuestion.operands.reduce(
+                (product, num) => product * num,
+                1
+              );
+            }
+          }
+
           get().showFeedback(
             result.is_correct ?? false,
             result.is_correct ? '答对了！🎉' : '再想想哦 🤔',
-            result.correct_answer
+            correctAnswer
           );
 
           // The navigation to the result page is handled by a useEffect in PracticePage.

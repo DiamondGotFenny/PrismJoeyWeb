@@ -131,3 +131,27 @@
   box-shadow: 0 0 5px rgba(52, 152, 219, 0.5); /* Subtle glow for active */
   background-color: #e0efff; /* Light blue background when active */
 }
+
+/* Styling for filled cells (previously blank cells that now have values) */
+.digit-entry.filled-cell {
+  border: 1px solid #28a745; /* Green border for filled cells */
+  background-color: #f8fff9; /* Very light green background */
+  border-radius: 4px;
+}
+
+.digit-entry.filled-cell:hover {
+  background-color: #e8f5e8; /* Slightly darker green on hover */
+}
+
+/* Styling for correct answers when showing solution */
+.digit-entry.correct-answer {
+  border: 2px solid #28a745; /* Thicker green border for correct answers */
+  background-color: #d4edda; /* Light green background for correct answers */
+  box-shadow: 0 0 5px rgba(40, 167, 69, 0.3); /* Green glow */
+}
+
+/* Ensure filled cells maintain their styling even when active */
+.digit-entry.filled-cell.active {
+  border: 2px solid #28a745; /* Keep green border but make it thicker when active */
+  box-shadow: 0 0 5px rgba(40, 167, 69, 0.5); /* Green glow instead of blue */
+}
