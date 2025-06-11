@@ -11,14 +11,6 @@
 
 ## Active Bugs
 
-### 1. ❌ **CRITICAL** - Backend Server Hangs on Help Request Timeout
-
-**Status:** Open  
-**Severity:** Critical  
-**Description:** When user clicks "帮我一下" (Help) button and the LLM request times out or doesn't respond, the FastAPI backend server becomes unresponsive. Even Ctrl+C cannot terminate the server - only force-closing the terminal works.  
-**Impact:** Complete server lockup requiring manual intervention  
-**Priority:** Immediate fix required
-
 ### 5. ⚠️ **HIGH** - Voice Help Issues in Columnar Calculation
 
 **Status:** Open  
@@ -33,6 +25,15 @@
 ---
 
 ## Resolved Bugs
+
+### 1. ✅ **FIXED** - Backend Server Hangs on Help Request Timeout
+
+**Status:** Fixed  
+**Severity:** Critical  
+**Description:** When user clicks "帮我一下" (Help) button and the LLM request times out or doesn't respond, the FastAPI backend server becomes unresponsive. Even Ctrl+C cannot terminate the server - only force-closing the terminal works.  
+**Solution:** Implemented async timeout handling using `asyncio.wait_for` with 40-second timeout and `run_in_executor` to prevent blocking the FastAPI event loop. LLM calls now run in background threads with automatic fallback to mock help content on timeout or failure. Server remains responsive and gracefully handles LLM service issues.  
+**Fixed Date:** 2025-06-11  
+**Fixed By:** AI Assistant
 
 ### 2. ✅ **FIXED** - Critical Error on Exercise Session Page Load
 
@@ -84,6 +85,6 @@
 ## Summary
 
 - **Total Bugs:** 7
-- **Active:** 2 (1 Critical, 1 High)
-- **Fixed:** 5
-- **Critical Issues:** 1 (Server hang on help timeout)
+- **Active:** 1 (1 High)
+- **Fixed:** 6
+- **Critical Issues:** 0

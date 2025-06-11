@@ -12,6 +12,7 @@ from app.services.columnar_practice_service import generate_columnar_question
 from app.services.llm_service import llm_service
 from app.services.tts_service import tts_service
 from pydantic import BaseModel
+import asyncio  # Added for async timeout handling
 
 logger = logging.getLogger(__name__)
 
@@ -501,16 +502,28 @@ async def get_question_help(request: HelpRequest):
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
     
-    # Generate LLM-powered help response
+    # ---- BEGIN FIX FOR HANGING SERVER ON LLM TIMEOUT ----
+    # Call the potentially blocking LLM request in a background thread and apply an
+    # overall timeout so that the FastAPI event loop never gets blocked forever.
+    # If the timeout is reached or any exception is raised we fall back to the
+    # mock help generators so the user still receives a response.
+    LLM_TIMEOUT_SECONDS = 40  # Safeguard timeout (can be tuned or moved to env)
+
     try:
-        help_response = llm_service.generate_help_response(question)
+        loop = asyncio.get_running_loop()
+        help_response = await asyncio.wait_for(
+            loop.run_in_executor(None, llm_service.generate_help_response, question),
+            timeout=LLM_TIMEOUT_SECONDS
+        )
         return HelpResponse(
             help_content=help_response["help_content"],
             thinking_process=help_response["thinking_process"],
             solution_steps=help_response["solution_steps"]
         )
-    except Exception as e:
-        # If LLM fails, fall back to basic mock responses
+    except (asyncio.TimeoutError, Exception) as e:
+        # Log the timeout or error and fall back to mock responses so the server
+        # remains responsive instead of hanging indefinitely.
+        logger.error(f"LLM generation failed or timed out: {e}. Falling back to mock help.")
         if question.question_type == "columnar":
             help_content = generate_columnar_help_mock(question)
             thinking_process = generate_columnar_thinking_mock(question)
@@ -519,12 +532,12 @@ async def get_question_help(request: HelpRequest):
             help_content = generate_arithmetic_help_mock(question)
             thinking_process = generate_arithmetic_thinking_mock(question)
             solution_steps = generate_arithmetic_steps_mock(question)
-        
         return HelpResponse(
             help_content=help_content,
             thinking_process=thinking_process,
             solution_steps=solution_steps
         )
+    # ---- END FIX ----
 
 @router.post("/voice-help")
 async def get_question_voice_help(request: HelpRequest):
