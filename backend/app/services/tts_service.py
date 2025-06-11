@@ -198,8 +198,10 @@ class TTSService:
             operand_strs = []
             operand_descriptions = []
             for i, operand_row in enumerate(question.columnar_operands):
-                digits = [str(d) if d is not None else "_" for d in operand_row]
-                operand_str = "".join(digits)
+                digits = [str(d) if d is not None else "?" for d in operand_row]
+                operand_str_raw = "".join(digits)
+                # Remove leading zeros to avoid confusing descriptions like "09" being read as two digits
+                operand_str = operand_str_raw.lstrip("0") or "0"
                 operand_strs.append(operand_str)
                 
                 # Count blanks in this operand
@@ -215,8 +217,9 @@ class TTSService:
             
             # Include the result row with placeholders - this is crucial for understanding the complete question
             if question.columnar_result_placeholders:
-                result_digits = [str(d) if d is not None else "_" for d in question.columnar_result_placeholders]
-                result_str = "".join(result_digits)
+                result_digits = [str(d) if d is not None else "?" for d in question.columnar_result_placeholders]
+                result_str_raw = "".join(result_digits)
+                result_str = result_str_raw.lstrip("0") or "0"
                 operand_description += f"，答案行是 {result_str}"
                 
                 # Count how many blanks need to be filled
@@ -231,14 +234,14 @@ class TTSService:
 运算符号：{question.columnar_operation}
 
 请注意：
-1. 这段文字将通过语音合成播放给小朋友听，所以要口语化、自然流畅
-2. 重点讲解竖式计算的方法和步骤，帮助孩子理解如何填写所有的空格
+1. 这段文字将通过语音合成播放给小朋友听，所以要口语化、自然流畅. 但整段话要限制在5到6句话以内。
+2. 重点讲解竖式计算的方法和步骤，帮助孩子理解如何填写所有的空格。问题中的问号在前端是以空格的形式显示的，所以要说"空格"，不要说"问号"。
 3. 语调要温和鼓励，让孩子觉得数学很有趣
 4. 强调"从右到左，一位一位算"的重要原则
 5. 如果是加法，要提醒进位；如果是减法，要提醒借位
 6. 用简单的语言解释为什么要这样对齐
 7. 要指导孩子如何推理出每个空格的数字，包括操作数中的空格和答案中的空格。
-8. 注意，有时候填什么数字才能让竖式成立，答案是有几个可能，要提示孩子多思考各种可能。
+8. 注意，有时候填什么数字才能让竖式成立，答案是有几个可能，要提示孩子多思考各种可能。但前提是这些可能的答案在数学上是正确的。
 9. 鼓励孩子仔细、耐心地完成每一步
 
 请直接输出语音讲解内容，不要包含任何格式标记："""

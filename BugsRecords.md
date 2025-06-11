@@ -11,16 +11,7 @@
 
 ## Active Bugs
 
-### 5. ⚠️ **HIGH** - Voice Help Issues in Columnar Calculation
-
-**Status:** Open  
-**Severity:** High  
-**Description:** Voice help for columnar calculations has multiple issues:
-
-- Single digits are described as double digits
-- Missing parts are described as underscores ("下横线")  
-  **Impact:** Confusing and unhelpful voice assistance  
-  **Priority:** Fix in next release
+_No active bugs currently_
 
 ---
 
@@ -80,11 +71,24 @@
 **Fixed Date:** 2025-06-10  
 **Fixed By:** AI Assistant
 
+### 5. ✅ **FIXED** - Voice Help Issues in Columnar Calculation
+
+**Status:** Fixed  
+**Severity:** High  
+**Description:** Voice help for columnar calculations had multiple issues:
+
+- Single digits were described as double digits due to leading zero padding
+- Missing parts were described as underscores ("下横线") instead of blanks
+- No timeout protection for TTS service causing potential server hangs
+  **Solution:** Fixed digit representation in TTS service by replacing underscores with question marks and stripping leading zeros. Added comprehensive timeout guards (45 seconds) to all three voice help endpoints using asyncio.wait_for and run_in_executor to prevent server blocking. Enhanced LLM prompts with clearer instructions about referring to "空格" instead of "问号" and limiting response length.  
+  **Fixed Date:** 2025-01-14  
+  **Fixed By:** AI Assistant
+
 ---
 
 ## Summary
 
 - **Total Bugs:** 7
-- **Active:** 1 (1 High)
-- **Fixed:** 6
+- **Active:** 0
+- **Fixed:** 7
 - **Critical Issues:** 0

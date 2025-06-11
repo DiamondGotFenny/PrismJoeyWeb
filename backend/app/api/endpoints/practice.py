@@ -561,9 +561,16 @@ async def get_question_voice_help(request: HelpRequest):
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
     
+    # ---- BEGIN FIX FOR HANGING SERVER ON TTS/LLM TIMEOUT ----
+    # Apply timeout protection similar to text help to prevent server hanging
+    TTS_TIMEOUT_SECONDS = 45  # Slightly longer than text help since TTS generation takes more time
+    
     try:
-        # Generate voice help using TTS service
-        audio_bytes = tts_service.generate_voice_help(question)
+        loop = asyncio.get_running_loop()
+        audio_bytes = await asyncio.wait_for(
+            loop.run_in_executor(None, tts_service.generate_voice_help, question),
+            timeout=TTS_TIMEOUT_SECONDS
+        )
         
         # Return audio as MP3
         return Response(
@@ -574,9 +581,10 @@ async def get_question_voice_help(request: HelpRequest):
                 "Cache-Control": "no-cache"
             }
         )
-    except Exception as e:
-        logger.error(f"Error generating voice help: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate voice help")
+    except (asyncio.TimeoutError, Exception) as e:
+        logger.error(f"TTS generation failed or timed out: {e}. Falling back to error response.")
+        raise HTTPException(status_code=500, detail="Voice help generation timed out or failed")
+    # ---- END FIX ----
 
 @router.post("/voice-help-stream")
 async def get_question_voice_help_stream(request: HelpRequest):
@@ -600,20 +608,34 @@ async def get_question_voice_help_stream(request: HelpRequest):
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
     
+    # ---- BEGIN FIX FOR HANGING SERVER ON TTS/LLM TIMEOUT ----
+    # For streaming, we need to handle timeout at the generator level
+    TTS_TIMEOUT_SECONDS = 45
+    
     try:
-        # Generate streaming voice help using TTS service
-        def generate_audio_stream():
+        # Generate streaming voice help using TTS service with timeout protection
+        async def generate_audio_stream_with_timeout():
             try:
-                for audio_chunk in tts_service.generate_voice_help_stream(question):
+                loop = asyncio.get_running_loop()
+                # Create the generator in executor to avoid blocking
+                generator = await asyncio.wait_for(
+                    loop.run_in_executor(None, lambda: tts_service.generate_voice_help_stream(question)),
+                    timeout=TTS_TIMEOUT_SECONDS
+                )
+                
+                # Stream the audio chunks
+                for audio_chunk in generator:
                     yield audio_chunk
-            except Exception as e:
+                    
+            except (asyncio.TimeoutError, Exception) as e:
                 logger.error(f"Error in audio stream generation: {e}")
-                # Optionally yield an error sound or just stop the stream
+                # For streaming, we can't raise HTTP exceptions mid-stream
+                # Just end the stream gracefully
                 return
         
         # Return streaming audio as MP3
         return StreamingResponse(
-            generate_audio_stream(),
+            generate_audio_stream_with_timeout(),
             media_type="audio/mpeg",
             headers={
                 "Content-Disposition": "inline; filename=voice_help_stream.mp3",
@@ -624,8 +646,9 @@ async def get_question_voice_help_stream(request: HelpRequest):
             }
         )
     except Exception as e:
-        logger.error(f"Error generating streaming voice help: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate streaming voice help")
+        logger.error(f"Error setting up streaming voice help: {e}")
+        raise HTTPException(status_code=500, detail="Failed to setup streaming voice help")
+    # ---- END FIX ----
 
 @router.post("/voice-help-stream-ultra")
 async def get_question_voice_help_stream_ultra(request: HelpRequest):
@@ -649,25 +672,43 @@ async def get_question_voice_help_stream_ultra(request: HelpRequest):
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
     
+    # ---- BEGIN FIX FOR HANGING SERVER ON TTS/LLM TIMEOUT ----
+    # For ultra streaming, we need to handle timeout at the generator level
+    TTS_TIMEOUT_SECONDS = 45
+    
     try:
-        # Generate optimized streaming voice help using TTS service
-        def generate_ultra_audio_stream():
+        # Generate optimized streaming voice help using TTS service with timeout protection
+        async def generate_ultra_audio_stream_with_timeout():
             try:
-                for audio_chunk in tts_service.generate_voice_help_stream_optimized(question):
+                loop = asyncio.get_running_loop()
+                # Create the generator in executor to avoid blocking
+                generator = await asyncio.wait_for(
+                    loop.run_in_executor(None, lambda: tts_service.generate_voice_help_stream_optimized(question)),
+                    timeout=TTS_TIMEOUT_SECONDS
+                )
+                
+                # Stream the audio chunks
+                for audio_chunk in generator:
                     yield audio_chunk
-            except Exception as e:
+                    
+            except (asyncio.TimeoutError, Exception) as e:
                 logger.error(f"Error in ultra audio stream generation: {e}")
                 # Fallback to regular streaming if optimized fails
                 try:
-                    for audio_chunk in tts_service.generate_voice_help_stream(question):
+                    loop = asyncio.get_running_loop()
+                    fallback_generator = await asyncio.wait_for(
+                        loop.run_in_executor(None, lambda: tts_service.generate_voice_help_stream(question)),
+                        timeout=TTS_TIMEOUT_SECONDS
+                    )
+                    for audio_chunk in fallback_generator:
                         yield audio_chunk
-                except Exception as fallback_error:
+                except (asyncio.TimeoutError, Exception) as fallback_error:
                     logger.error(f"Fallback stream also failed: {fallback_error}")
                     return
         
         # Return streaming audio as MP3
         return StreamingResponse(
-            generate_ultra_audio_stream(),
+            generate_ultra_audio_stream_with_timeout(),
             media_type="audio/mpeg",
             headers={
                 "Content-Disposition": "inline; filename=voice_help_ultra_stream.mp3",
@@ -679,8 +720,9 @@ async def get_question_voice_help_stream_ultra(request: HelpRequest):
             }
         )
     except Exception as e:
-        logger.error(f"Error generating ultra streaming voice help: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate ultra streaming voice help")
+        logger.error(f"Error setting up ultra streaming voice help: {e}")
+        raise HTTPException(status_code=500, detail="Failed to setup ultra streaming voice help")
+    # ---- END FIX ----
 
 def generate_arithmetic_help_mock(question: Question) -> str:
     """Generate mock help content for arithmetic questions"""
