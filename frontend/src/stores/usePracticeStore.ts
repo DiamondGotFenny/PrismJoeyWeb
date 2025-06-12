@@ -91,6 +91,15 @@ interface PracticeState {
 
   // Session summary
   sessionDataForSummary: PracticeSession | null;
+
+  // Preserve user-filled columnar inputs in case backend summary omits them
+  columnarSubmissionMap: Record<
+    string,
+    {
+      user_filled_operands?: number[][];
+      user_filled_result?: number[];
+    }
+  >;
 }
 
 interface PracticeActions {
@@ -203,6 +212,7 @@ const initialState: PracticeState = {
   helpAbortController: null,
   voiceHelpAbortController: null,
   sessionDataForSummary: null,
+  columnarSubmissionMap: {},
 };
 
 export const usePracticeStore = create<PracticeStore>()(
@@ -262,6 +272,23 @@ export const usePracticeStore = create<PracticeStore>()(
         try {
           console.log('[usePracticeStore] Ending session, fetching summary...');
           const summaryData = await getPracticeSummary(sessionId);
+
+          // Merge stored user-filled columnar data if backend omitted them
+          summaryData.questions = summaryData.questions.map((q) => {
+            if (q.question_type === 'columnar') {
+              const stored = get().columnarSubmissionMap[q.id];
+              if (stored) {
+                return {
+                  ...q,
+                  user_filled_operands:
+                    q.user_filled_operands ?? stored.user_filled_operands,
+                  user_filled_result:
+                    q.user_filled_result ?? stored.user_filled_result,
+                } as typeof q;
+              }
+            }
+            return q;
+          });
 
           set((state) => {
             state.sessionDataForSummary = summaryData;
@@ -436,11 +463,26 @@ export const usePracticeStore = create<PracticeStore>()(
               payload.user_filled_operands = columnarOperandDigits.map((row) =>
                 row.map((digit) => digit ?? 0)
               );
+
+              // Store locally for later summary augmentation
+              set((s) => {
+                s.columnarSubmissionMap[currentQuestion.id] = {
+                  ...s.columnarSubmissionMap[currentQuestion.id],
+                  user_filled_operands: payload.user_filled_operands,
+                };
+              });
             }
             if (columnarResultDigits) {
               payload.user_filled_result = columnarResultDigits.map(
                 (digit) => digit ?? 0
               );
+
+              set((s) => {
+                s.columnarSubmissionMap[currentQuestion.id] = {
+                  ...s.columnarSubmissionMap[currentQuestion.id],
+                  user_filled_result: payload.user_filled_result,
+                };
+              });
             }
           } else {
             const answerNumber = parseFloat(currentAnswer);

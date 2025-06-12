@@ -389,9 +389,9 @@ test.describe('Result Page – User Answer Expression Display', () => {
                 is_correct: false,
                 user_filled_operands: [
                   [1, 2],
-                  [1, 6],
+                  [1, 5],
                 ],
-                user_filled_result: [2, 8],
+                user_filled_result: [2, 5],
                 user_answer: 28,
               },
             ],
@@ -419,7 +419,7 @@ test.describe('Result Page – User Answer Expression Display', () => {
     await setupFlowWithIncorrectColumnarAnswer(page);
 
     // Sequentially fill two ones-digit placeholders with 4 and 4
-    const digitsSeq = ['4', '4'];
+    const digitsSeq = ['2', '5'];
     for (const digit of digitsSeq) {
       const currentPh = page
         .locator('.placeholder, .interactive-placeholder')
@@ -441,7 +441,6 @@ test.describe('Result Page – User Answer Expression Display', () => {
         '[data-testid^="question-review-item-"] .answer-row .answer-value'
       )
       .first();
-    await expect(userAnswerElement).toContainText('=');
-    await expect(userAnswerElement).toContainText('+');
+    await expect(userAnswerElement).toContainText('12 + 15 = 25');
   });
 });

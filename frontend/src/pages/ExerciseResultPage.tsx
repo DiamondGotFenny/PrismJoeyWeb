@@ -180,17 +180,15 @@ const ExerciseResultPage: React.FC = () => {
                   >
                     {question.question_type === 'columnar'
                       ? (() => {
-                          // Attempt to build user-entered expression for columnar questions
-                          const opSymbol =
-                            question.operations?.[0] ||
-                            question.columnar_operation ||
-                            '+';
-
-                          // If backend provided explicit user-filled digits, use them
+                          // Priority: use user_filled_operands/result if available
                           if (
                             question.user_filled_operands &&
                             question.user_filled_result
                           ) {
+                            const opSymbol =
+                              question.operations?.[0] ||
+                              question.columnar_operation ||
+                              '+';
                             const operandStrings =
                               question.user_filled_operands.map(
                                 (digitsArr: number[]) => digitsArr.join('')
@@ -202,7 +200,7 @@ const ExerciseResultPage: React.FC = () => {
                             }
                           }
 
-                          // Fallback: show the numeric user_answer or placeholder
+                          // Fallback: only show user_answer (not complete expression)
                           return question.user_answer ?? '未作答';
                         })()
                       : (question.user_answer ?? '未作答')}
