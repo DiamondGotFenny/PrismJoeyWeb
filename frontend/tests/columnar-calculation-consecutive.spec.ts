@@ -307,3 +307,141 @@ test.describe('Columnar calculation – 10-question endurance run', () => {
     }
   });
 });
+
+// ---------------- Additional Result Page Assertions ----------------
+
+test.describe('Result Page – User Answer Expression Display', () => {
+  const setupFlowWithIncorrectColumnarAnswer = async (page: Page) => {
+    const mockSessionId = 'mock-session-id-res-1';
+    const mockQuestionId = 'mock-question-id-res-2';
+
+    const mockQuestion = {
+      id: mockQuestionId,
+      session_id: mockSessionId,
+      operands: [14, 14],
+      operations: ['+'],
+      question_string: '1? + 1? = 28',
+      correct_answer: 28,
+      difficulty_level_id: 1,
+      question_type: 'columnar',
+      columnar_operands: [
+        [1, null],
+        [1, null],
+      ],
+      columnar_result_placeholders: [2, 8],
+      columnar_operation: '+',
+      created_at: new Date().toISOString(),
+    };
+
+    // --- Mock practice start ---
+    await page.route('**/api/v1/practice/start', async (route) => {
+      await route.fulfill({
+        json: {
+          id: mockSessionId,
+          difficulty_level_id: 1,
+          total_questions_planned: 1,
+          questions: [mockQuestion],
+          current_question_index: 0,
+          score: 0,
+          start_time: new Date().toISOString(),
+        },
+      });
+    });
+
+    // --- Mock next question ---
+    await page.route(
+      `**/api/v1/practice/question?session_id=${mockSessionId}`,
+      async (route) => {
+        await route.fulfill({ json: mockQuestion });
+      }
+    );
+
+    // --- Mock answer submission (incorrect) ---
+    await page.route('**/api/v1/practice/answer', async (route) => {
+      interface AnswerBody {
+        user_filled_operands?: number[][];
+        user_filled_result?: number[];
+        [key: string]: unknown;
+      }
+      const body = (await route.request().postDataJSON()) as AnswerBody;
+      await route.fulfill({
+        json: {
+          ...mockQuestion,
+          is_correct: false,
+          user_filled_operands: body.user_filled_operands,
+          user_filled_result: body.user_filled_result,
+        },
+      });
+    });
+
+    // --- Mock summary ---
+    await page.route(
+      `**/api/v1/practice/summary?session_id=${mockSessionId}`,
+      async (route) => {
+        await route.fulfill({
+          json: {
+            id: mockSessionId,
+            difficulty_level_id: 1,
+            total_questions_planned: 1,
+            questions: [
+              {
+                ...mockQuestion,
+                is_correct: false,
+                user_filled_operands: [
+                  [1, 2],
+                  [1, 6],
+                ],
+                user_filled_result: [2, 8],
+                user_answer: 28,
+              },
+            ],
+            current_question_index: 1,
+            score: 0,
+            start_time: new Date().toISOString(),
+            end_time: new Date().toISOString(),
+          },
+        });
+      }
+    );
+
+    // Navigate
+    await gotoPracticeSession(page, {
+      difficulty: { name: 'Mock Columnar Difficulty – Result Flow' },
+      totalQuestions: 1,
+    });
+
+    await expect(page.locator('.columnar-calculation-container')).toBeVisible();
+  };
+
+  test('shows full user-entered expression for incorrect columnar answer on result page', async ({
+    page,
+  }) => {
+    await setupFlowWithIncorrectColumnarAnswer(page);
+
+    // Sequentially fill two ones-digit placeholders with 4 and 4
+    const digitsSeq = ['4', '4'];
+    for (const digit of digitsSeq) {
+      const currentPh = page
+        .locator('.placeholder, .interactive-placeholder')
+        .first();
+      await currentPh.waitFor({ state: 'visible', timeout: 5000 });
+      await currentPh.click();
+      await page.locator(`button:has-text("${digit}")`).click();
+      await page.waitForTimeout(200);
+    }
+
+    await page.locator('button:has-text("确认")').click();
+
+    // Wait for navigation to result page
+    await page.waitForURL(/practice\/result/);
+    await expect(page.getByTestId('result-page')).toBeVisible();
+
+    const userAnswerElement = page
+      .locator(
+        '[data-testid^="question-review-item-"] .answer-row .answer-value'
+      )
+      .first();
+    await expect(userAnswerElement).toContainText('=');
+    await expect(userAnswerElement).toContainText('+');
+  });
+});

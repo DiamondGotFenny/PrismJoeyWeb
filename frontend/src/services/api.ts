@@ -41,6 +41,9 @@ export interface Question {
   columnar_operation?: string;
   created_at: string; // ISO datetime string
   user_answer?: number;
+  // For columnar questions, the digits that the user filled in (may be returned by backend)
+  user_filled_operands?: number[][];
+  user_filled_result?: number[];
   is_correct?: boolean;
   time_spent?: number; // seconds
   answered_at?: string; // ISO datetime string

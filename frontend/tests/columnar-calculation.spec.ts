@@ -790,4 +790,48 @@ test.describe('Columnar Calculation E2E - Zustand Architecture', () => {
 
     console.log('[Test] Complete workflow with all bug fixes verified');
   });
+
+  // New test: Retain user digits on correct answer
+  test('should retain user-filled digits after submitting a correct columnar answer', async ({
+    page,
+  }) => {
+    await setupColumnarQuestion(page, {
+      operands: [12, 16],
+      operations: ['+'],
+      question_string: '1? + 1? = 28',
+      correct_answer: 28,
+      columnar_operands: [
+        [1, null],
+        [1, null],
+      ],
+      columnar_result_placeholders: [2, 8],
+      columnar_operation: '+',
+    });
+
+    // Wait for component readiness
+    await page.waitForTimeout(500);
+
+    // We will sequentially fill the two blank ones digits (second column) with 2 and 6.
+    const digitsToEnter = ['2', '6'];
+    for (const digit of digitsToEnter) {
+      const currentPlaceholder = page
+        .locator('.placeholder, .interactive-placeholder')
+        .first();
+      await currentPlaceholder.waitFor({ state: 'visible', timeout: 5000 });
+      await currentPlaceholder.click();
+      await page.locator(`button:has-text("${digit}")`).click();
+      // Small debounce for store update
+      await page.waitForTimeout(200);
+    }
+
+    // Submit answer (should be correct)
+    await page.locator('button:has-text("确认")').click();
+    await page.waitForTimeout(600);
+
+    // After correct submission, there should be NO correct-answer highlight
+    await expect(page.locator('.digit-cell.correct-answer')).toHaveCount(0);
+
+    // The two filled cells should keep `filled-cell` class
+    await expect(page.locator('.digit-cell.filled-cell')).toHaveCount(2);
+  });
 });

@@ -156,7 +156,7 @@ class TTSService:
 6. 最后给出正确答案并鼓励孩子
 
 请直接输出语音讲解内容，不要包含任何格式标记："""
-
+        print("prompt", prompt)
         try:
             response = self.llm_service.client.chat.completions.create(
                 model=self.llm_service.model,
@@ -169,7 +169,7 @@ class TTSService:
             )
             
             content = response.choices[0].message.content.strip()
-            
+            print("content", content)
             # Ensure the content is suitable for TTS
             if len(content) < 20:  # Too short, might be an error
                 return self._generate_fallback_oral_help(question)

@@ -178,7 +178,34 @@ const ExerciseResultPage: React.FC = () => {
                   <span
                     className={`answer-value ${question.is_correct ? 'correct' : 'incorrect'}`}
                   >
-                    {question.user_answer ?? '未作答'}
+                    {question.question_type === 'columnar'
+                      ? (() => {
+                          // Attempt to build user-entered expression for columnar questions
+                          const opSymbol =
+                            question.operations?.[0] ||
+                            question.columnar_operation ||
+                            '+';
+
+                          // If backend provided explicit user-filled digits, use them
+                          if (
+                            question.user_filled_operands &&
+                            question.user_filled_result
+                          ) {
+                            const operandStrings =
+                              question.user_filled_operands.map(
+                                (digitsArr: number[]) => digitsArr.join('')
+                              );
+                            const resultStr =
+                              question.user_filled_result.join('');
+                            if (operandStrings.length >= 2) {
+                              return `${operandStrings[0]} ${opSymbol} ${operandStrings[1]} = ${resultStr}`;
+                            }
+                          }
+
+                          // Fallback: show the numeric user_answer or placeholder
+                          return question.user_answer ?? '未作答';
+                        })()
+                      : (question.user_answer ?? '未作答')}
                   </span>
                 </div>
                 {!question.is_correct && (

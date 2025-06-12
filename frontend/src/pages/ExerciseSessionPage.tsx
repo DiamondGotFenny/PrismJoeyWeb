@@ -617,7 +617,7 @@ const ExerciseSessionPage: React.FC = () => {
           <ColumnarCalculation
             question={currentQuestion}
             onAnswerChange={handleColumnarAnswerChange}
-            showCorrectAnswer={isAnswerSubmitted}
+            showCorrectAnswer={isAnswerSubmitted && !feedback.isCorrect}
             onInputFocus={handleColumnarInputFocus}
             activeInput={activeColumnarInput}
             externalOperandDigits={columnarOperandDigits || undefined}
