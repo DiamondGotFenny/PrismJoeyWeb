@@ -210,7 +210,7 @@ npm install
 2. 运行全部E2E测试：
 
 ```bash
-npx playwright test
+npx playwright test --project chromium --workers=6
 ```
 
 3. 仅运行帮助功能测试：

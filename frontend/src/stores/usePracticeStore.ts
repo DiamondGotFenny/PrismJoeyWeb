@@ -21,7 +21,7 @@ import { AxiosError } from 'axios';
 interface FeedbackState {
   isCorrect: boolean | null;
   message: string;
-  correctAnswer?: number;
+  correctAnswer?: string | number;
   show: boolean;
 }
 
@@ -128,7 +128,7 @@ interface PracticeActions {
   showFeedback: (
     isCorrect: boolean,
     message?: string,
-    correctAnswer?: number
+    correctAnswer?: string | number
   ) => void;
   hideFeedback: () => void;
 
@@ -460,33 +460,58 @@ export const usePracticeStore = create<PracticeStore>()(
           });
 
           // Show feedback - for columnar questions, calculate the correct answer
-          let correctAnswer = result.correct_answer;
+          let correctAnswer: string | number | undefined =
+            result.correct_answer;
           if (
-            !correctAnswer &&
             currentQuestion.question_type === 'columnar' &&
             currentQuestion.operands
           ) {
-            // Calculate correct answer for columnar questions
-            if (currentQuestion.columnar_operation === '+') {
-              correctAnswer = currentQuestion.operands.reduce(
-                (sum, num) => sum + num,
+            const opSymbol =
+              currentQuestion.columnar_operation ||
+              currentQuestion.operations?.[0] ||
+              '+';
+
+            // Build operand strings with zero padding according to columnar_operands lengths
+            const operandStrings = currentQuestion.operands.map(
+              (operand, idx) => {
+                const desiredLength =
+                  currentQuestion.columnar_operands?.[idx]?.length ?? undefined;
+                return desiredLength
+                  ? operand.toString().padStart(desiredLength, '0')
+                  : operand.toString();
+              }
+            );
+
+            // Compute result number
+            let resultNumber = 0;
+            if (opSymbol === '+') {
+              resultNumber = currentQuestion.operands.reduce(
+                (sum, n) => sum + n,
                 0
               );
             } else if (
-              currentQuestion.columnar_operation === '-' &&
+              opSymbol === '-' &&
               currentQuestion.operands.length >= 2
             ) {
-              correctAnswer =
+              resultNumber =
                 currentQuestion.operands[0] - currentQuestion.operands[1];
             } else if (
-              currentQuestion.columnar_operation === '*' &&
+              opSymbol === '*' &&
               currentQuestion.operands.length >= 2
             ) {
-              correctAnswer = currentQuestion.operands.reduce(
-                (product, num) => product * num,
+              resultNumber = currentQuestion.operands.reduce(
+                (prod, n) => prod * n,
                 1
               );
             }
+
+            const resultLen =
+              currentQuestion.columnar_result_placeholders?.length ?? undefined;
+            const resultStr = resultLen
+              ? resultNumber.toString().padStart(resultLen, '0')
+              : resultNumber.toString();
+
+            correctAnswer = `${operandStrings[0]} ${opSymbol} ${operandStrings[1]} = ${resultStr}`;
           }
 
           get().showFeedback(
@@ -749,7 +774,7 @@ export const usePracticeStore = create<PracticeStore>()(
       showFeedback: (
         isCorrect: boolean,
         message?: string,
-        correctAnswer?: number
+        correctAnswer?: string | number
       ) => {
         set((state) => {
           state.feedback = {
@@ -769,8 +794,11 @@ export const usePracticeStore = create<PracticeStore>()(
 
       // Help actions
       requestHelp: async () => {
-        const { sessionId, currentQuestion, helpAbortController } = get();
-        if (!sessionId || !currentQuestion) return;
+        const { currentQuestion, helpAbortController } = get();
+        if (!currentQuestion) return;
+
+        const effectiveSessionId = currentQuestion.session_id;
+        if (!effectiveSessionId) return;
 
         // Abort any existing request
         if (helpAbortController) {
@@ -788,7 +816,7 @@ export const usePracticeStore = create<PracticeStore>()(
 
         try {
           const helpData = await getQuestionHelp(
-            sessionId,
+            effectiveSessionId,
             currentQuestion.id,
             {
               signal: newController.signal,
@@ -870,13 +898,16 @@ export const usePracticeStore = create<PracticeStore>()(
       requestVoiceHelp: async (
         audioRef?: RefObject<HTMLAudioElement | null>
       ) => {
-        const { sessionId, currentQuestion, voiceHelpAbortController } = get();
+        const { currentQuestion, voiceHelpAbortController } = get();
         console.log('[requestVoiceHelp] Starting voice help request', {
-          sessionId: !!sessionId,
+          sessionId: currentQuestion?.session_id,
           currentQuestion: !!currentQuestion,
           hasAudioRef: !!audioRef,
         });
-        if (!sessionId || !currentQuestion) return;
+        if (!currentQuestion) return;
+
+        const effectiveSessionId = currentQuestion.session_id;
+        if (!effectiveSessionId) return;
 
         if (voiceHelpAbortController) {
           console.log('[requestVoiceHelp] Aborting existing controller');
@@ -896,7 +927,7 @@ export const usePracticeStore = create<PracticeStore>()(
         try {
           console.log('[requestVoiceHelp] About to call playStreamingAudio');
           await playStreamingAudio(
-            sessionId,
+            effectiveSessionId,
             currentQuestion.id,
             (progress) => {
               console.log('[requestVoiceHelp] onProgress callback', progress);

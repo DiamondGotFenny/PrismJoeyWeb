@@ -5,14 +5,14 @@ interface FeedbackDisplayProps {
   isCorrect: boolean | null;
   correctMessage?: string;
   incorrectMessage?: string;
-  correctAnswer?: number;
+  correctAnswer?: string | number;
   show: boolean; // Prop to control visibility and trigger animation
 }
 
 const FeedbackDisplay: React.FC<FeedbackDisplayProps> = ({
   isCorrect,
-  correctMessage = "答对了！🎉",
-  incorrectMessage = "再想想哦 🤔",
+  correctMessage = '答对了！🎉',
+  incorrectMessage = '再想想哦 🤔',
   correctAnswer,
   show,
 }) => {
@@ -37,7 +37,6 @@ const FeedbackDisplay: React.FC<FeedbackDisplayProps> = ({
     //   if (animationClass) setAnimationClass(prev => prev.replace(' feedback-pop', '').replace(' feedback-shake', ''));
     // }, 500); // Duration of animation
     // return () => clearTimeout(timer);
-
   }, [show, isCorrect]); // Re-run effect if `show` or `isCorrect` changes
 
   if (!show || isCorrect === null) {
@@ -49,12 +48,14 @@ const FeedbackDisplay: React.FC<FeedbackDisplayProps> = ({
       <div className="feedback-content">
         {isCorrect ? (
           <>
-            <span className="feedback-icon">✔️</span> {/* Or use an image/SVG */}
+            <span className="feedback-icon">✔️</span>{' '}
+            {/* Or use an image/SVG */}
             {correctMessage}
           </>
         ) : (
           <>
-            <span className="feedback-icon">❌</span> {/* Or use an image/SVG */}
+            <span className="feedback-icon">❌</span>{' '}
+            {/* Or use an image/SVG */}
             {incorrectMessage}
             {correctAnswer !== undefined && (
               <span className="correct-answer-reveal">

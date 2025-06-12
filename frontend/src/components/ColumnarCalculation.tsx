@@ -220,7 +220,9 @@ const ColumnarCalculation: React.FC<ColumnarCalculationProps> = ({
         (type === 'result' && activeInput.type === 'result'));
 
     const charToRender =
-      digit === null || digit === '' ? ' ' : digit.toString();
+      digit === null || digit === '' || digit === undefined
+        ? ' '
+        : digit.toString();
     const isPlaceholderChar = charToRender === ' ';
 
     const iconSize: 'small' | 'medium' | 'large' = 'medium';

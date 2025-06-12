@@ -185,7 +185,63 @@ const ExerciseResultPage: React.FC = () => {
                   <div className="answer-row">
                     <span className="answer-label">正确答案:</span>
                     <span className="answer-value correct">
-                      {question.correct_answer}
+                      {question.question_type === 'columnar'
+                        ? (() => {
+                            // Build full expression like "82+09=91"
+                            const opSymbol =
+                              question.operations?.[0] ||
+                              question.columnar_operation ||
+                              '+';
+                            // Build operand strings with zero-padding according to columnar_operands lengths
+                            const operandStrings = question.operands.map(
+                              (operand, idx) => {
+                                const desiredLength =
+                                  question.columnar_operands?.[idx]?.length ??
+                                  undefined;
+                                return desiredLength
+                                  ? operand
+                                      .toString()
+                                      .padStart(desiredLength, '0')
+                                  : operand.toString();
+                              }
+                            );
+                            // Compute result number
+                            let resultNumber: number = 0;
+                            if (opSymbol === '+') {
+                              resultNumber = question.operands.reduce(
+                                (sum, n) => sum + n,
+                                0
+                              );
+                            } else if (
+                              opSymbol === '-' &&
+                              question.operands.length >= 2
+                            ) {
+                              resultNumber =
+                                question.operands[0] - question.operands[1];
+                            } else if (
+                              opSymbol === '*' &&
+                              question.operands.length >= 2
+                            ) {
+                              resultNumber = question.operands.reduce(
+                                (prod, n) => prod * n,
+                                1
+                              );
+                            } else {
+                              // Fallback to first operand if operation unsupported
+                              resultNumber = question.operands[0];
+                            }
+                            // Zero-pad result according to placeholders length
+                            const resultLength =
+                              question.columnar_result_placeholders?.length ??
+                              undefined;
+                            const resultStr = resultLength
+                              ? resultNumber
+                                  .toString()
+                                  .padStart(resultLength, '0')
+                              : resultNumber.toString();
+                            return `${operandStrings[0]} ${opSymbol} ${operandStrings[1]} = ${resultStr}`;
+                          })()
+                        : question.correct_answer}
                     </span>
                   </div>
                 )}

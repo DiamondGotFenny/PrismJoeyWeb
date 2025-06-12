@@ -84,11 +84,32 @@ _No active bugs currently_
   **Fixed Date:** 2025-01-14  
   **Fixed By:** AI Assistant
 
+### 8. ✅ **FIXED** - ColumnarCalculation Undefined Digit Crash
+
+**Status:** Fixed  
+**Severity:** High  
+**Description:** During columnar-calculation practice, submitting an answer sometimes triggered `TypeError: Cannot read properties of undefined (reading 'toString')` originating from `ColumnarCalculation.renderDigit`. This broke the UI and halted automated E2E runs.  
+**Solution:** Added defensive check to treat `undefined` digits the same as `null/''` before calling `toString()`. Implemented in `ColumnarCalculation.tsx` (see commit on 2025-06-12).  
+**Fixed Date:** 2025-06-12  
+**Fixed By:** AI Assistant
+
+### 9. ✅ **FIXED** - Columnar Calculation Shows Only RHS Number
+
+**Status:** Fixed  
+**Severity:** High  
+**Description:** For columnar calculation questions, the result page and in-practice feedback displayed only the right-hand side number (e.g., "91") instead of the full completed equation. Students therefore could not see which digits should fill the '?' placeholders (e.g., "82 + 09 = 91"). Normal arithmetic questions were unaffected.  
+**Solution:**
+
+1. **Frontend** – Enhanced `usePracticeStore.submitCurrentAnswer` to build a zero-padded full-expression string (operand1 op operand2 = result) and pass it to `showFeedback`. `ExerciseResultPage` logic updated earlier to render this expression for columnar questions.
+2. **Tests** – E2E spec asserts that `.correct-answer-reveal` contains "=" confirming full expression is rendered.  
+   **Fixed Date:** 2025-06-12  
+   **Fixed By:** AI Assistant
+
 ---
 
 ## Summary
 
-- **Total Bugs:** 7
+- **Total Bugs:** 9
 - **Active:** 0
-- **Fixed:** 7
+- **Fixed:** 9
 - **Critical Issues:** 0
