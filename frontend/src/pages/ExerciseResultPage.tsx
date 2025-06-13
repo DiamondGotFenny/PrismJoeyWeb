@@ -1,49 +1,78 @@
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { usePracticeStore, useNavigationStore } from '../stores';
 import '../styles/ExerciseResultPage.css';
 
 const ExerciseResultPage: React.FC = () => {
   const navigate = useNavigate();
+  const { gradeId, subjectId } = useParams<{
+    gradeId: string;
+    subjectId: string;
+  }>();
   const sessionDataForSummary = usePracticeStore(
     (state) => state.sessionDataForSummary
   );
   const isLoading = usePracticeStore((state) => state.isLoading);
   const error = usePracticeStore((state) => state.error);
   const resetSession = usePracticeStore((state) => state.reset);
+  const endNavigationSession = useNavigationStore((state) => state.endSession);
   const resetNavigation = useNavigationStore((state) => state.reset);
+  const isNavigatingRef = useRef(false);
 
   useEffect(() => {
     // If no summary data, redirect back to difficulty selection
-    if (!sessionDataForSummary && !isLoading) {
+    if (!sessionDataForSummary && !isLoading && !isNavigatingRef.current) {
       console.log(
         '[ExerciseResultPage] No session data found, redirecting to difficulty selection'
       );
-      navigate('/difficulty-selection');
+      if (gradeId && subjectId) {
+        navigate(
+          `/grades/${gradeId}/subjects/${subjectId}/practice/difficulty`
+        );
+      } else {
+        navigate('/grades'); // Fallback
+      }
     }
-  }, [sessionDataForSummary, isLoading, navigate]);
+  }, [sessionDataForSummary, isLoading, navigate, gradeId, subjectId]);
 
   const handleTryAgain = () => {
-    console.log('[ExerciseResultPage] Try again clicked, resetting stores');
-    resetSession();
-    resetNavigation();
-    navigate('/grade-selection');
+    console.log('[ExerciseResultPage] Try again clicked');
+    isNavigatingRef.current = true;
+    if (gradeId && subjectId) {
+      navigate(`/grades/${gradeId}/subjects/${subjectId}/practice/session`);
+    } else {
+      navigate('/grades');
+    }
+    // Postpone resets to next tick to avoid redirect loops while ResultPage still mounted
+    setTimeout(() => {
+      resetSession();
+      endNavigationSession();
+    }, 0);
   };
 
   const handleBackToHome = () => {
     console.log('[ExerciseResultPage] Back to home clicked, resetting stores');
-    resetSession();
-    resetNavigation();
+    isNavigatingRef.current = true;
     navigate('/');
+    // Delay resets until after navigation completes to avoid unwanted redirects
+    setTimeout(() => {
+      resetSession();
+      resetNavigation();
+    }, 0);
   };
 
   const handleBackToDifficulty = () => {
     console.log(
       '[ExerciseResultPage] Back to difficulty clicked, resetting stores'
     );
+    isNavigatingRef.current = true;
+    if (gradeId && subjectId) {
+      navigate(`/grades/${gradeId}/subjects/${subjectId}/practice/difficulty`);
+    } else {
+      navigate('/grades');
+    }
     resetSession();
-    resetNavigation();
-    navigate('/difficulty-selection');
+    endNavigationSession();
   };
 
   if (isLoading) {
